@@ -4,31 +4,10 @@ on:
   workflow_dispatch:
   push:
     branches:
-      - master
-      - dev
-      - legacy
-      - min
-      - medium
-      - branch-v2.973
-      - branch-v2.975
-      - branch_v2.982
-      - dev-level
-      - develop
-      - dark-theme-v2.977
+      - '**'
   pull_request:
     branches:
-      - master
-      - dev
-      - legacy
-      - min
-      - medium
-      - branch-v2.973
-      - branch-v2.975
-      - branch_v2.982
-      - dev-level
-      - develop
-      - dark-theme-v2.977
-
+      - '**'
 jobs:
   build:
 
