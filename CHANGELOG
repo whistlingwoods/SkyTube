@@ -1,4 +1,183 @@
-v2.983 - 2022-08-25
+v2.999 - 2026-05-24
+        * Discard AI Dubbed audio tracks by Iván Álvarez López
+        * Fix channel opening broken by Youtube API changes
+        * Translators:
+                * AlphaHighOx, Cabdi Waaxid Siciid, DuninduH, Ettore Atalan, Jeff Huang, Julien BRONDINO,
+                * Massimo Pissarello, MaxGremory, Milan, Milo Ivir, Paco Men Zarbien, Yaron Shahrabani,
+                * ialNavy, mackavelue-design, ssantos, whistlingwoods, ℂ𝕠𝕠𝕠𝕝, 大王叫我来巡山
+
+v2.998 - 2026-01-28
+        * Fix video loading / downloading etc caused by Youtube API changes.
+        * Implement OPML import / export support.
+        * Translators:
+                * Anonymous,Besnik Bleta,bruh,Ettore Atalan,GMP,idkhow2name,Milan,Milo Ivir,Oğuz Ersen,Priit Jõerüüt,
+                * Szia Tomi,TXRdev Archive,Yaron Shahrabani,Любомир Василев,大王叫我来巡山
+
+v2.997 - 2026-01-06
+        * Fix comment and reply loading.
+        * Fix a crash in the backup preference page.
+        * Translators:
+                * Besnik Bleta,Charlie Izzy, Ettore Atalan, Ihor Hordiichuk,Jeff Huang,Julio Montero,Kosei Taguchi,
+                * Massimo Pissarello, Milan, Milo Ivir, Nicolas Radu, Oğuz Ersen, Petrov, Priit Jõerüüt, Rex_sa, Samylol99,
+                * ShareASmile, Stefanos Stefanidis, Szia Tomi, Vishnu Kalapala, Yaron Shahrabani, kd1211A, maboroshin,
+                * ssantos, syl, whistlingwoods, Любомир Василев, 大王叫我来巡山
+
+v2.996 - 2025-08-31
+        * Add ability to set a PIN code for changing preferences.
+        * Polish the player tutorial text labels.
+        * Improve the fastlane descriptions.
+
+v2.995 - 2025-02-15
+        * Fixing comment replies
+        * Use latest NewPipeExtractor
+        * Json handling improvement
+        * Fix subscribe button positioning
+
+v2.994 - 2025-01-28
+        * Fixing the F-Droid build.
+
+v2.993 - 2025-01-23
+        * Fixing a rushed update that caused lot's of problems due to newer Android API usage.
+
+v2.992 - 2025-01-22
+        * Use latest NewPipeExtractor
+        * Add ability to set the application language internally.
+        * Updated translations for:
+                * Albanian, Arabic, Chinese (Simplified), Chinese (Traditional), Croatian, Czech, Estonian, French, Finnish, German,
+                * Greek, Hindi, Hungarian, Italian, Portuguese (Brazil), Portuguese (Portugal), Punjabi, Slovak, Spanish, Turkish,
+                * Ukrainian.
+        * Translators:
+                * Besnik Bleta, Ettore Atalan, Flavio F. M, Ihor Hordiichuk, Jeff Huang, Jose Delvani, Massimo Pissarello, Milan,
+                * Milo Ivir, Oğuz Ersen, Priit Jõerüüt, Rex_sa, Ricky Tigg, Samylol99, ShareASmile, Stamatis Mamougas, gallegonovato
+                * ssantos, 大王叫我来巡山
+
+v2.991 - 2024-08-25
+        * Optimize internal database, make it faster and smaller.
+        * Make subscription feed appear (nearly) instantly and do the slow network fetches in the background.
+        * Use Material themed subscribe button.
+        * Search query text is clickable on the result.
+        * Fix broken compilation due to JCenter disapearance
+        * Show deleted/blocked channels differently, and allow to unsubscribe from them.
+        * Updated translations for:
+                * Catalan, Malayalam, Tamil
+        * Translators:
+                * ek387587, Rohan Kishore, Onebyone
+
+v2.990 - 2024-07-25
+        * Update NewPipeExtractor to fix recent Youtube site changes.
+        * Remove unnecessary app-install right from the OSS version
+        * Delete old, unused table from the subscribiption database
+        * Update translations to fix a wrong format character
+
+v2.989 - 2024-07-14
+        * Fix video/channel sharing
+        * Update NewPipeExtractor to fix recent Youtube site changes.
+        * Clean up non-existent HookTube and Invidious sites by drogga
+        * Updated translations for:
+                * Albanian, Arabic, Czech, Chinese (Simplified), Chinese (Traditional), Croatian, Estonian, French, German, Italian, Hungarian, Polish, Portuguese, Portuguese (Brazil), Slovak, Spanish, Turkish, Ukrainian
+        * Translators:
+                * Besnik Bleta, Eryk Michalak, Fjuro, Flavio F. M, Ihor Hordiichuk, J. Lavoie, Jeff Huang, Massimo Pissarello, Milan, Milo Ivir, Oğuz Ersen, Priit Jõerüüt, Rex_sa, Samylo199, Sergio Marques, Szia Tomi, gallegonovato, 大王叫我来巡山
+
+v2.988 - 2024-04-29
+        * Fix couple of bugs around subscribing and unsubscribing
+        * Fix crashes around comment parsing
+        * Add USA as a locale for getting the trending videos.
+        * Handle Youtube channel urls that starts with @
+        * Updating to the latest NewPipeExtractor
+        * Updated translations for:
+                * Albanian - Besnik Bleta
+                * Arabic - thami simo
+                * Bulgarian - Любомир Василев
+                * Chinese (Simplified) - Nriver
+                * Chinese (Traditional) - Jeff Huang
+                * Czech - Fjuro, Woyta
+                * Estonian - Priit Jõerüüt
+                * Finnish - JiPRA
+                * French - J. Lavoie, aleksej0R
+                * Greek - luckris25
+                * Hungarian - Szia Tomi
+                * Italian - Massimo Pissarello
+                * Korean - 이상혁
+                * Latvian - Arta Ridere
+                * Lithuanian - Marius Zrelskis
+                * Norwegian Bokmål - Allan Nordhøy
+                * Persian - parsa shirvani
+                * Polish - Bartek200219, Michal L
+                * Portuguese (Brazil) - Carlos Luiz, Flavio F. M, Jose Delvani, Mr. Fakezay
+                * Portuguese - Lucas Ribeiro
+                * Russian - Alexey Amanov
+                * Sinhala - DuninduH, HelaBasa Group, KGdr8
+                * Ukrainian - Ihor Hordiichuk
+                * Vietnamese - Fiezt Marshall, Tấn Lực Trương
+
+v2.987 - 2023-08-15
+        * Fix 'unable to download videos' error, due to recent Youtube changes
+        * Fix error because of missing channel banner/avatar
+        * Fix crash happening, when SponsorBlock was not enabled when video was downloaded, however enabled later
+        * Fix missing context menu items.
+        * Refactor to use the latest NewPipe playlist fecthing code
+        * update style of screenshots - Tomoya Kuroda
+        * Updated translations for:
+           * Czech - Woyta, Not Fill
+           * Chinese (Simplified) - Eric
+           * French - Ninjdai
+           * German - RandomModderJDK
+           * Hindi - ShareASmile
+           * Hungarian - Szia Tomi
+           * Italian - Massimo Pissarello
+           * Japanese - Takaki IEKURA
+           * Polish - Michal L
+           * Portugeese (Brazil) - gkubya, Yuri Argolo, Flavio F. M, Carlos Luiz
+           * Portugeese - SACAMOTO SEIJI
+           * Punjabi - ShareASmile
+           * Russian - Alexey Esaulenko, jooblex
+
+v2.986 - 2023-04-24
+        * Implementing a 'Watched Video Cleaner' to quickly remove watched videos from the Bookmarks and Downloaded videos - by randommodder
+        * Showing comment replies, displaying 'pinned' and 'hearted-by-uploader'
+        * Implementing video navigation through links which points to a specific second in the video works from the comments and from the video description.
+        * Fixes in the Video blocker, better naming for allow/deny channel list, organize the channel related menuitems better.
+        * Make AndroidTV compatible - at least it will be displayed among the apps.
+        * Updated translations for:
+            * Albanian - Besnik Bleta
+            * Arabic - Ahmed Badeeb and thami simo
+            * Azerbaijani - Nizami and ReVanced
+            * Basque - Julio Montero
+            * Berber - ⵣⵓⵀⵉⵔ ⴰⵎⴰⵣⵉⵖ زهير أمازيغ
+            * Bulgarian - Radoslav Vasilev Vasilev and Ивайло Пантелеев Пушков
+            * Catalan - Marc Gállego Asín
+            * Chinese (Simplified) - Eric
+            * Chinese (Traditional) - WongWong123 and zica
+            * Croatian - Milo Ivir
+            * Dutch - Cereal-Killer-X
+            * Finnish - Jani Kinnunen and Sami Sudenpentu
+            * French - J. Lavoie and syl
+            * Galician - gallegonovato 
+            * German - Ettore Atalan and RandomModderJDK
+            * Hindi - RSoulwin and ShareASmile
+            * Hungarian - Szia Tomi
+            * Indonesian - Devon saragih and myisyanz
+            * Italian - Massimo Pissarello and atilluF
+            * Korean - museekee
+            * Latvian - Coool
+            * Lithuanian - Gediminas Murauskas
+            * Norwegian Bokmål - Allan Nordhøy
+            * Odia - Subham Jena
+            * Polish - Bartek200219 and Karol Górecki
+            * Portuguese - ssantos
+            * Punjabi - ShareASmile
+            * Romanian - Igor Sorocean
+            * Russian - Experience!, Gleb, jooblex and Дмитрий «Артанис»
+            * Spanish - Eduardo Malaspina and gallegonovato 
+            * Swedish - Deaquay
+            * Turkish - Oğuz Ersen
+            * Ukrainian - Ihor Hordiichuk
+            * Vietnamese - NathanPham19 and Son Tran
+
+v2.985 - 2022-11-04
+        * Newest NewPipeExtractor to fix Youtube parsing
+
+v2.984 - 2022-08-25
         * Fix running on Android 4.4
 
 v2.983 - 2022-08-25

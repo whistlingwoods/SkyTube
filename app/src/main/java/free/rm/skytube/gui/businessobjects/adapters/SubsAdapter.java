@@ -29,16 +29,14 @@ import androidx.recyclerview.widget.RecyclerView;
 import com.bumptech.glide.Glide;
 import com.bumptech.glide.request.RequestOptions;
 
-import java.util.HashSet;
 import java.util.Iterator;
-import java.util.Set;
 
 import free.rm.skytube.R;
 import free.rm.skytube.app.EventBus;
 import free.rm.skytube.businessobjects.YouTube.POJOs.ChannelView;
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.db.DatabaseTasks;
 import free.rm.skytube.databinding.SubChannelBinding;
-import free.rm.skytube.gui.businessobjects.MainActivityListener;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 
 /**
@@ -65,11 +63,11 @@ public class SubsAdapter extends RecyclerViewAdapterEx<ChannelView, SubsAdapter.
 	 *
 	 * @param channelId Channel to remove.
 	 */
-	public void removeChannel(String channelId) {
+	public void removeChannel(ChannelId channelId) {
 		int size = getItemCount();
 
 		for (int i = 0; i < size; i++) {
-			if (get(i).getId().equalsIgnoreCase(channelId)) {
+			if (get(i).getId().equals(channelId)) {
 				remove(i);
 				return;
 			}
@@ -86,7 +84,7 @@ public class SubsAdapter extends RecyclerViewAdapterEx<ChannelView, SubsAdapter.
 	 *                  visit;  false = no new videos)
 	 * @return True if the operations have been successful; false otherwise.
 	 */
-	public boolean changeChannelNewVideosStatus(String channelId, boolean newVideos) {
+	public boolean changeChannelNewVideosStatus(ChannelId channelId, boolean newVideos) {
 		ChannelView channel;
 		int position = 0;
 
@@ -141,7 +139,7 @@ public class SubsAdapter extends RecyclerViewAdapterEx<ChannelView, SubsAdapter.
 	}
 
 	private void executeQuery(String searchText, View progressBar) {
-		compositeDisposable.add(DatabaseTasks.getSubscribedChannelView(progressBar, searchText)
+		compositeDisposable.add(DatabaseTasks.getSubscribedChannelView(getContext(), progressBar, searchText)
 				.subscribe(this::appendList));
 	}
 
@@ -160,7 +158,7 @@ public class SubsAdapter extends RecyclerViewAdapterEx<ChannelView, SubsAdapter.
 			super(binding.getRoot());
 			this.binding = binding;
 			binding.getRoot().setOnClickListener(v -> {
-				String channelId = channel.getId();
+				ChannelId channelId = channel.getId();
 				EventBus.getInstance().notifyMainActivities(listener -> {
 					listener.onChannelClick(channelId);
 				});
@@ -173,7 +171,22 @@ public class SubsAdapter extends RecyclerViewAdapterEx<ChannelView, SubsAdapter.
 					.apply(new RequestOptions().placeholder(R.drawable.channel_thumbnail_default))
 					.into(binding.subChannelThumbnailImageView);
 
-			binding.subChannelNameTextView.setText(channel.getTitle());
+            final String prefix;
+            switch (channel.status()) {
+                case ACCOUNT_TERMINATED: {
+                    prefix = itemView.getContext().getString(R.string.status_account_terminated);
+                    break;
+                }
+                case NOT_EXISTS: {
+                    prefix = itemView.getContext().getString(R.string.status_not_exists);
+                    break;
+                }
+                default: {
+                    prefix = "";
+                    break;
+                }
+            }
+			binding.subChannelNameTextView.setText(prefix + channel.getTitle());
 			binding.subChannelNewVideosNotification.setVisibility(channel.isNewVideosSinceLastVisit() ? View.VISIBLE : View.INVISIBLE);
 			this.channel = channel;
 		}

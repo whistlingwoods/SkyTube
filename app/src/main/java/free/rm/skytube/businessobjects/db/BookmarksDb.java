@@ -22,15 +22,11 @@ import android.content.Context;
 import android.database.Cursor;
 import android.database.SQLException;
 import android.database.sqlite.SQLiteDatabase;
-import android.view.Menu;
 
 import androidx.annotation.NonNull;
 import androidx.core.util.Pair;
 
-import com.google.gson.Gson;
-
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.github.skytube.components.utils.SQLiteHelper;
 
 import java.util.ArrayList;
 import java.util.HashSet;
@@ -39,17 +35,14 @@ import java.util.Set;
 
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.app.Utils;
-import free.rm.skytube.app.utils.WeakList;
+import free.rm.skytube.businessobjects.JsonSerializer;
 import free.rm.skytube.businessobjects.Logger;
 import free.rm.skytube.businessobjects.YouTube.POJOs.CardData;
-import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 import free.rm.skytube.businessobjects.YouTube.newpipe.VideoId;
-import free.rm.skytube.businessobjects.interfaces.CardListener;
 import free.rm.skytube.businessobjects.interfaces.OrderableDatabase;
 import io.reactivex.rxjava3.android.schedulers.AndroidSchedulers;
 import io.reactivex.rxjava3.core.Single;
-import io.reactivex.rxjava3.disposables.Disposable;
 import io.reactivex.rxjava3.schedulers.Schedulers;
 
 /**
@@ -60,6 +53,7 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 
 	private static final int DATABASE_VERSION = 1;
 	private static final String DATABASE_NAME = "bookmarks.db";
+    private final JsonSerializer jsonSerializer = new JsonSerializer();
 
 	private BookmarksDb(Context context) {
 		super(context, DATABASE_NAME, null, DATABASE_VERSION);
@@ -106,10 +100,9 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
          * @return True if the video was successfully saved/bookmarked to the DB.
          */
     private DatabaseResult add(YouTubeVideo video) {
-		Gson gson = new Gson();
 		ContentValues values = new ContentValues();
 		values.put(BookmarksTable.COL_YOUTUBE_VIDEO_ID, video.getId());
-		values.put(BookmarksTable.COL_YOUTUBE_VIDEO, gson.toJson(video).getBytes());
+		values.put(BookmarksTable.COL_YOUTUBE_VIDEO, jsonSerializer.toPersistedVideoJson(video).getBytes());
 
 		int order = getMaximumOrderNumber();
 		order++;
@@ -170,29 +163,25 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 			if (rowsDeleted > 0) {
 				// Since we've removed a video, we will need to update the order column for all the videos.
 				int order = 1;
-				Cursor cursor = getReadableDatabase().query(
+				try (Cursor cursor = getReadableDatabase().query(
 						BookmarksTable.TABLE_NAME,
 						new String[]{BookmarksTable.COL_YOUTUBE_VIDEO, BookmarksTable.COL_ORDER},
 						null,
-						null, null, null, BookmarksTable.COL_ORDER + " ASC");
-				if (cursor.moveToNext()) {
-					Gson gson = new Gson();
-					do {
-						byte[] blob = cursor.getBlob(cursor.getColumnIndex(BookmarksTable.COL_YOUTUBE_VIDEO));
-						YouTubeVideo uvideo = gson.fromJson(new String(blob), YouTubeVideo.class).updatePublishTimestampFromDate();
-						ContentValues contentValues = new ContentValues();
-						contentValues.put(BookmarksTable.COL_ORDER, order++);
+						null, null, null, BookmarksTable.COL_ORDER + " ASC")) {
+                    int blobCol = cursor.getColumnIndexOrThrow(BookmarksTable.COL_YOUTUBE_VIDEO);
+                    while (cursor.moveToNext()) {
+                        byte[] blob = cursor.getBlob(blobCol);
+                        YouTubeVideo uvideo = jsonSerializer.fromPersistedVideoJson(blob).updatePublishTimestampFromDate();
+                        ContentValues contentValues = new ContentValues();
+                        contentValues.put(BookmarksTable.COL_ORDER, order++);
 
-						getWritableDatabase().update(BookmarksTable.TABLE_NAME, contentValues, BookmarksTable.COL_YOUTUBE_VIDEO_ID + " = ?",
-								new String[]{uvideo.getId()});
-					} while (cursor.moveToNext());
-				}
-
-				cursor.close();
-
-				return DatabaseResult.SUCCESS;
-			}
-				return DatabaseResult.NOT_MODIFIED;
+                        getWritableDatabase().update(BookmarksTable.TABLE_NAME, contentValues, BookmarksTable.COL_YOUTUBE_VIDEO_ID + " = ?",
+                                new String[]{uvideo.getId()});
+                    }
+                }
+                return DatabaseResult.SUCCESS;
+            }
+            return DatabaseResult.NOT_MODIFIED;
 		} catch (SQLException e) {
 			Logger.e(this, "Database error: " + e.getMessage(), e);
 			return DatabaseResult.ERROR;
@@ -226,7 +215,8 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 	 * @return True if it has been bookmarked, false if not.
 	 */
 	public boolean isBookmarked(String videoId) {
-		return executeQueryForInteger(BookmarksTable.IS_BOOKMARKED_QUERY, new String[]{videoId}, 0) > 0;
+		SkyTubeApp.nonUiThread();
+		return SQLiteHelper.executeQueryForInteger(getReadableDatabase(), BookmarksTable.IS_BOOKMARKED_QUERY, new String[]{videoId}, 0) > 0;
 	}
 
     /**
@@ -234,7 +224,7 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
      */
     public Single<Integer> getTotalBookmarkCount() {
         return Single.fromCallable(() ->
-            executeQueryForInteger(BookmarksTable.COUNT_ALL_BOOKMARKS, 0)
+                SQLiteHelper.executeQueryForInteger(getReadableDatabase(), BookmarksTable.COUNT_ALL_BOOKMARKS, 0)
         ).subscribeOn(Schedulers.io());
     }
 
@@ -242,7 +232,8 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 	 * @return The maximum of the order number - which could be different from the number of bookmarked videos, in case some of them are deleted.
 	 */
 	public int getMaximumOrderNumber() {
-		return executeQueryForInteger(BookmarksTable.MAXIMUM_ORDER_QUERY, 0);
+		SkyTubeApp.nonUiThread();
+		return SQLiteHelper.executeQueryForInteger(getReadableDatabase(), BookmarksTable.MAXIMUM_ORDER_QUERY, 0);
 	}
 
 
@@ -254,6 +245,7 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 	public @NonNull Pair<List<YouTubeVideo>, Integer> getBookmarkedVideos(int limit, Integer maxOrderLimit) {
         //Logger.i(this, "getBookmarkedVideos " + limit + ',' + maxOrderLimit +
         //        " - " + (maxOrderLimit != null ? BookmarksTable.PAGED_QUERY : BookmarksTable.PAGED_QUERY_UNBOUNDED));
+		SkyTubeApp.nonUiThread();
 
         SQLiteDatabase db = getReadableDatabase();
         Cursor	cursor = maxOrderLimit != null ?
@@ -264,7 +256,6 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 
 		List<YouTubeVideo> videos = new ArrayList<>();
 
-		final Gson gson = new Gson();
 		Integer minOrder = null;
 		if(cursor.moveToNext()) {
 			final int colOrder = cursor.getColumnIndex(BookmarksTable.COL_ORDER);
@@ -275,28 +266,9 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 
                 minOrder = Utils.min(currentOrder, minOrder);
 
-				final String videoJson = new String(blob);
-
 				// convert JSON into YouTubeVideo
-				YouTubeVideo video = gson.fromJson(videoJson, YouTubeVideo.class).updatePublishTimestampFromDate();
+				YouTubeVideo video = jsonSerializer.fromPersistedVideoJson(blob);
 
-                // Logger.i(this, "Order "+cursor.getInt(colOrder)+ ", id="+video.getId()+","+video.getTitle());
-
-                // due to upgrade to YouTubeVideo (by changing channel{Id,Name} to YouTubeChannel)
-				// from version 2.82 to 2.90
-				if (video.getChannel() == null) {
-					try {
-						JSONObject videoJsonObj = new JSONObject(videoJson);
-						final String channelId   = videoJsonObj.get("channelId").toString();
-						final String channelName = videoJsonObj.get("channelName").toString();
-						video.setChannel(new YouTubeChannel(channelId, channelName));
-					} catch (JSONException e) {
-						Logger.e(this, "Error occurred while extracting channel{Id,Name} from JSON", e);
-					}
-				}
-
-				// regenerate the video's PublishDatePretty (e.g. 5 hours ago)
-				//video.forceRefreshPublishDatePretty();
 				// add the video to the list
 				videos.add(video);
 			} while(cursor.moveToNext());
@@ -304,6 +276,24 @@ public class BookmarksDb extends CardEventEmitterDatabase implements OrderableDa
 
 		cursor.close();
 		return Pair.create(videos, minOrder);
+	}
+
+	/**
+	 *
+	 * @return all the bookmarked video's id.
+	 */
+	public @NonNull Set<VideoId> getAllBookmarkedVideoIds() {
+		SkyTubeApp.nonUiThread();
+
+		SQLiteDatabase db = getReadableDatabase();
+		Set<VideoId> results = new HashSet<>();
+		try (Cursor	cursor = db.rawQuery(BookmarksTable.QUERY_ALL_IDS, new String[0] )) {
+			while(cursor.moveToNext()) {
+				String id = cursor.getString(0);
+				results.add(VideoId.create(id));
+			}
+		}
+		return results;
 	}
 
 }

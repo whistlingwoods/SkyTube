@@ -37,15 +37,15 @@ public class ChannelVideosFragment extends VideosGridFragment {
 		return view;
 	}
 
-    public VideoGridAdapter getVideoGridAdapter() {
-        return videoGridAdapter;
-    }
-
 	public void setYouTubeChannel(YouTubeChannel youTubeChannel) {
 		channel = youTubeChannel;
 		if (videoGridAdapter != null) {
 			videoGridAdapter.setYouTubeChannel(youTubeChannel);
 		}
+	}
+
+	VideoGridAdapter getVideoGridAdapter() {
+		return videoGridAdapter;
 	}
 
 	@Override

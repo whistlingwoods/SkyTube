@@ -54,56 +54,57 @@ public abstract class VideosGridFragment extends BaseVideosGridFragment {
     }
 
     protected void initVideos(@NonNull Context context, VideoGridAdapter videoGridAdapterParam, @NonNull VideosGridviewBinding gridviewBindingParam) {
-        initBase(context, videoGridAdapterParam, gridviewBindingParam.swipeRefreshLayout);
+        initBase(context, videoGridAdapterParam);
         this.gridviewBinding = gridviewBindingParam;
         // setup the video grid view
-        videoGridAdapter.setSwipeRefreshLayout(swipeRefreshLayout);
+        videoGridAdapter.setSwipeRefreshLayout(gridviewBindingParam.swipeRefreshLayout);
 
         VideoCategory category = getVideoCategory();
-        if (category != null)
+        if (category != null) {
             videoGridAdapter.setVideoCategory(category, getSearchString());
-
+        }
         videoGridAdapter.setListener((MainActivityListener)getActivity());
 
         gridviewBinding.gridView.setHasFixedSize(true);
         gridviewBinding.gridView.setLayoutManager(new GridLayoutManager(getActivity(),
                 getResources().getInteger(R.integer.video_grid_num_columns)));
         gridviewBinding.gridView.setAdapter(videoGridAdapter);
+        gridviewBinding.swipeRefreshLayout.setOnRefreshListener(this);
     }
 
-	@Override
-	public void onDestroyView() {
-		gridviewBinding.gridView.setAdapter(null);
-		gridviewBinding = null;
-		super.onDestroyView();
-		Glide.get(requireContext()).clearMemory();
-	}
+    @Override
+    public void onDestroyView() {
+        gridviewBinding.gridView.setAdapter(null);
+        gridviewBinding = null;
+        super.onDestroyView();
+        Glide.get(requireContext()).clearMemory();
+    }
 
     void scrollToTop() {
         gridviewBinding.gridView.smoothScrollToPosition(0);
     }
 
-	/**
-	 * @return Returns the category of videos being displayed by this fragment.
-	 */
-	protected abstract VideoCategory getVideoCategory();
+    /**
+     * @return Returns the category of videos being displayed by this fragment.
+     */
+    protected abstract VideoCategory getVideoCategory();
 
-	/**
-	 * @return Returns the search string used when setting the video category.  (Can be used to
-	 * set the channel ID in case of VideoCategory.CHANNEL_VIDEOS).
-	 */
-	protected String getSearchString() {
-		return null;
-	}
+    /**
+     * @return Returns the search string used when setting the video category.  (Can be used to
+     * set the channel ID in case of VideoCategory.CHANNEL_VIDEOS).
+     */
+    protected String getSearchString() {
+        return null;
+    }
 
-	/**
-	 * @return The fragment/tab name/title.
-	 */
-	public abstract String getFragmentName();
+    /**
+     * @return The fragment/tab name/title.
+     */
+    public abstract String getFragmentName();
 
-	public abstract int getPriority();
+    public abstract int getPriority();
 
-	public String getBundleKey() {
-		return null;
-	}
+    public String getBundleKey() {
+        return null;
+    }
 }

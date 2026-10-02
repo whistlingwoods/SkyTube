@@ -26,6 +26,7 @@ import org.schabi.newpipe.extractor.playlist.PlaylistInfoItem;
 import org.schabi.newpipe.extractor.stream.StreamInfoItem;
 
 import java.util.ArrayList;
+import java.util.Collections;
 import java.util.HashSet;
 import java.util.List;
 import java.util.Set;
@@ -39,12 +40,12 @@ import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 public class VideoPager extends Pager<InfoItem, CardData> {
     private final Set<String> seenVideos = new HashSet<>();
 
-    public VideoPager(StreamingService streamingService, ListExtractor<InfoItem> channelExtractor) {
+    public VideoPager(StreamingService streamingService, ListExtractor<? extends InfoItem> channelExtractor) {
         super(streamingService, channelExtractor);
     }
 
     @Override
-    protected List<CardData> extract(ListExtractor.InfoItemsPage<InfoItem> page) throws NewPipeException {
+    protected List<CardData> extract(ListExtractor.InfoItemsPage<? extends InfoItem> page) throws NewPipeException {
         List<CardData> result = new ArrayList<>(page.getItems().size());
         if (NewPipeService.DEBUG_LOG) {
             Logger.d(this, "extract from %s, items: %s", page, page.getItems().size());
@@ -109,21 +110,24 @@ public class VideoPager extends Pager<InfoItem, CardData> {
     }
 
     private CardData convert(PlaylistInfoItem playlistInfoItem, String id) {
-        return new YouTubePlaylist(id, playlistInfoItem.getName(), "", null, playlistInfoItem.getStreamCount(), playlistInfoItem.getThumbnailUrl(),
+        return new YouTubePlaylist(id, playlistInfoItem.getName(), "", null, playlistInfoItem.getStreamCount(), NewPipeUtils.getThumbnailUrl(playlistInfoItem),
                 null);
     }
 
     private CardData convert(ChannelInfoItem channelInfoItem) {
         String url = channelInfoItem.getUrl();
-        String id = null;
+        String id = getId(url);
+        return new YouTubeChannel(id, channelInfoItem.getName(), channelInfoItem.getDescription(), NewPipeUtils.getThumbnailUrl(channelInfoItem), null,
+                channelInfoItem.getSubscriberCount(), false, -1, System.currentTimeMillis(), null, Collections.emptyList());
+    }
+
+    private String getId(String url) {
         try {
-            id = channelLinkHandler.getId(url);
+            return channelLinkHandler.getId(url);
         } catch (ParsingException p) {
-            Logger.e(this, "Unable to parse channel url "+url, p);
-            id = url;
+            Logger.e(this, "Unable to parse channel url "+ url, p);
+            return url;
         }
-        return new YouTubeChannel(id, channelInfoItem.getName(), channelInfoItem.getDescription(), channelInfoItem.getThumbnailUrl(), null,
-                channelInfoItem.getSubscriberCount(), false, -1, System.currentTimeMillis(), null);
     }
 
 }

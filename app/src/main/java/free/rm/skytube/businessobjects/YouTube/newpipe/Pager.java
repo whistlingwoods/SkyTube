@@ -32,7 +32,6 @@ import java.util.List;
 
 import free.rm.skytube.businessobjects.Logger;
 
-
 /**
  * Class to parse a channel screen for searching for videos and returning as pages with {@link #getNextPage()} }.
  *
@@ -40,7 +39,7 @@ import free.rm.skytube.businessobjects.Logger;
  */
 public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
     private final StreamingService streamingService;
-    private final ListExtractor<I> channelExtractor;
+    private final ListExtractor<? extends I> channelExtractor;
     private Page nextPage;
     private boolean hasNextPage = true;
     private Exception lastException;
@@ -48,14 +47,13 @@ public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
     protected final ListLinkHandlerFactory playlistLinkHandler;
     protected final LinkHandlerFactory channelLinkHandler;
 
-    Pager(StreamingService streamingService, ListExtractor<I> channelExtractor) {
+    Pager(StreamingService streamingService, ListExtractor<? extends I> channelExtractor) {
         this.streamingService = streamingService;
         this.channelExtractor = channelExtractor;
         this.streamLinkHandler = streamingService.getStreamLHFactory();
         this.playlistLinkHandler = streamingService.getPlaylistLHFactory();
         this.channelLinkHandler = streamingService.getChannelLHFactory();
     }
-
 
     StreamingService getStreamingService() {
         return streamingService;
@@ -64,6 +62,7 @@ public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
     /**
      * @return true, if there could be more videos available in the next page.
      */
+    @Override
     public boolean isHasNextPage() {
         return hasNextPage;
     }
@@ -80,7 +79,10 @@ public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
      * @throws ExtractionException
      */
     public List<O> getNextPage() throws NewPipeException {
-        if (!hasNextPage) {
+        if (!hasNextPage || channelExtractor == null) {
+            if (channelExtractor == null) {
+                Logger.e(this, "channelExtractor is null, returning empty list");
+            }
             return Collections.emptyList();
         }
         try {
@@ -97,6 +99,16 @@ public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
     }
 
     @Override
+    public List<O> getPageAndExtract(Page page) throws NewPipeException {
+        try {
+            return extract(channelExtractor.getPage(page));
+        } catch (IOException| ExtractionException| RuntimeException e) {
+            throw new NewPipeException("Error:" + e.getMessage() +
+                    (page != null ? " (page=" + page.getUrl() + ",ids=" + page.getIds() + ")" : ""), e);
+        }
+    }
+
+    @Override
     public List<O> getSafeNextPage() {
         try {
             return getNextPage();
@@ -107,13 +119,23 @@ public abstract class Pager<I extends InfoItem, O> implements PagerBackend<O> {
         }
     }
 
-    protected List<O> process(ListExtractor.InfoItemsPage<I> page) throws NewPipeException {
+    /**
+     * Process the page, and update the pager with the content, if the Pager needs to keep state
+     */
+    protected List<O> process(ListExtractor.InfoItemsPage<? extends I> page) throws NewPipeException, ExtractionException {
         nextPage = page.getNextPage();
         hasNextPage = page.hasNextPage();
         return extract(page);
     }
 
+    /**
+     * Information about the next page
+     */
+    @Override
+    public Page getNextPageInfo() {
+        return nextPage;
+    }
 
-    protected abstract List<O> extract(InfoItemsPage<I> page) throws NewPipeException;
+    protected abstract List<O> extract(InfoItemsPage<? extends I> page) throws NewPipeException, ExtractionException ;
 
 }

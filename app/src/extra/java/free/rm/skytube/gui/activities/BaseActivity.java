@@ -28,7 +28,6 @@ import android.view.MenuItem;
 import android.view.View;
 import android.widget.LinearLayout;
 
-import androidx.annotation.Nullable;
 import androidx.appcompat.app.AlertDialog;
 import androidx.appcompat.app.AppCompatActivity;
 import androidx.mediarouter.media.MediaRouteSelector;
@@ -51,7 +50,6 @@ import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 import com.google.android.gms.common.ConnectionResult;
 import com.google.android.gms.common.GoogleApiAvailability;
 import com.google.android.gms.common.images.WebImage;
-import com.google.gson.Gson;
 import com.sothree.slidinguppanel.SlidingUpPanelLayout;
 
 import org.schabi.newpipe.extractor.stream.StreamInfo;
@@ -61,8 +59,10 @@ import free.rm.skytube.R;
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.app.StreamSelectionPolicy;
 import free.rm.skytube.businessobjects.ChromecastListener;
+import free.rm.skytube.businessobjects.JsonSerializer;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.interfaces.GetDesiredStreamListener;
 import free.rm.skytube.databinding.ActivityMainBinding;
 import free.rm.skytube.gui.businessobjects.MainActivityListener;
@@ -95,10 +95,12 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
 	private ChromecastControllerFragment chromecastControllerFragment;
 
 	private MediaRouter mediaRouter;
+	private MediaRouter.Callback mediaRouterCallback;
 	private Intent externalPlayIntent;
 	private Intent notificationClickIntent;
 
     protected ActivityMainBinding binding;
+    protected final JsonSerializer jsonSerializer = new JsonSerializer();
 
 	private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
@@ -130,7 +132,7 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
 			mediaRouter = MediaRouter.getInstance(getApplicationContext());
 			MediaRouteSelector mediaRouteSelector = new MediaRouteSelector.Builder()
 					.addControlCategory(CastMediaControlIntent.categoryForCast(BuildConfig.CHROMECAST_APP_ID)).build();
-			mediaRouter.addCallback(mediaRouteSelector, new MediaRouter.Callback() {
+			mediaRouterCallback = new MediaRouter.Callback() {
 				private void onRouteAddedOrChanged(MediaRouter.RouteInfo route) {
 					SharedPreferences sharedPref = PreferenceManager.getDefaultSharedPreferences(BaseActivity.this);
 					String defaultChromecastId = sharedPref.getString(getString(R.string.pref_key_autocast), getString(R.string.pref_title_chromecast_none));
@@ -154,7 +156,8 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
 				@Override
 				public void onRouteRemoved(MediaRouter router, MediaRouter.RouteInfo route) {
 				}
-			});
+			};
+			mediaRouter.addCallback(mediaRouteSelector, mediaRouterCallback);
 			handleExternalPlayOnChromecast(getIntent());
 		} else {
 			final SharedPreferences preferences = SkyTubeApp.getPreferenceManager();
@@ -178,6 +181,10 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
 
 	@Override
 	protected void onDestroy() {
+		if (mediaRouter != null && mediaRouterCallback != null) {
+			mediaRouter.removeCallback(mediaRouterCallback);
+			mediaRouterCallback = null;
+		}
 		compositeDisposable.clear();
 		super.onDestroy();
 	}
@@ -462,7 +469,7 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
     }
 
 	@Override
-	public void onChannelClick(String channelId) {
+	public void onChannelClick(ChannelId channelId) {
 	}
 
 	@Override
@@ -481,11 +488,10 @@ public abstract class BaseActivity extends AppCompatActivity implements MainActi
 						public void onGetDesiredStream(StreamInfo desiredStream, YouTubeVideo video) {
 							if(mCastSession == null)
 								return;
-							Gson gson = new Gson();
 							final RemoteMediaClient remoteMediaClient = mCastSession.getRemoteMediaClient();
 							MediaMetadata metadata = new MediaMetadata(MediaMetadata.MEDIA_TYPE_GENERIC);
 							metadata.putInt(KEY_POSITION, position);
-							metadata.putString(KEY_VIDEO, gson.toJson(video));
+							metadata.putString(KEY_VIDEO, jsonSerializer.toPersistedVideoJson(video));
 
 							metadata.addImage(new WebImage(Uri.parse(video.getThumbnailUrl())));
 

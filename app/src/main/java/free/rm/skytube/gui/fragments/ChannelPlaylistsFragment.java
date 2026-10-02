@@ -12,8 +12,12 @@ import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 import free.rm.skytube.R;
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.businessobjects.VideoCategory;
+import free.rm.skytube.businessobjects.YouTube.LegacyGetChannelPlaylists;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubePlaylist;
+import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
+import free.rm.skytube.businessobjects.YouTube.newpipe.GetPlaylistsForChannel;
+import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeService;
 import free.rm.skytube.gui.businessobjects.MainActivityListener;
 import free.rm.skytube.gui.businessobjects.PlaylistClickListener;
 import free.rm.skytube.gui.businessobjects.adapters.PlaylistsGridAdapter;
@@ -22,64 +26,72 @@ import free.rm.skytube.gui.businessobjects.adapters.PlaylistsGridAdapter;
  * A fragment that displays the Playlists belonging to a Channel
  */
 public class ChannelPlaylistsFragment extends VideosGridFragment implements PlaylistClickListener, SwipeRefreshLayout.OnRefreshListener {
-	private PlaylistsGridAdapter    playlistsGridAdapter;
-	private MainActivityListener    mainActivityListener;
+    private PlaylistsGridAdapter    playlistsGridAdapter;
+    private MainActivityListener    mainActivityListener;
 
-	@Nullable
-	@Override
-	public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
-		View view = super.onCreateView(inflater, container, savedInstanceState);
+    @Nullable
+    @Override
+    public View onCreateView(@NonNull LayoutInflater inflater, @Nullable ViewGroup container, @Nullable Bundle savedInstanceState) {
+        View view = super.onCreateView(inflater, container, savedInstanceState);
 
-		swipeRefreshLayout.setOnRefreshListener(this);
 
-		if (playlistsGridAdapter == null) {
-			playlistsGridAdapter = new PlaylistsGridAdapter(getActivity(), this);
-		} else {
-			playlistsGridAdapter.setContext(getActivity());
-		}
+        if (playlistsGridAdapter == null) {
+            playlistsGridAdapter = new PlaylistsGridAdapter(getActivity(), this);
+        } else {
+            playlistsGridAdapter.setContext(getActivity());
+        }
 
-		YouTubeChannel channel = (YouTubeChannel) requireArguments()
-				.getSerializable(ChannelBrowserFragment.CHANNEL_OBJ);
-		playlistsGridAdapter.setYouTubeChannel(channel);
+        YouTubeChannel channel = (YouTubeChannel) requireArguments()
+                .getSerializable(ChannelBrowserFragment.CHANNEL_OBJ);
+        playlistsGridAdapter.setFetcher(createFetcher(channel));
 
-		gridviewBinding.gridView.setAdapter(playlistsGridAdapter);
+        gridviewBinding.gridView.setAdapter(playlistsGridAdapter);
 
-		return view;
-	}
+        return view;
+    }
 
-	@Override
-	public void onDestroy() {
-		playlistsGridAdapter.clearBackgroundTasks();
-		super.onDestroy();
-	}
+    private YouTubeTasks.ChannelPlaylistFetcher createFetcher(YouTubeChannel channel) {
+        if (SkyTubeApp.getSettings().isUseNewPipe()) {
+            return new GetPlaylistsForChannel(channel);
+        } else {
+            return new LegacyGetChannelPlaylists(channel);
+        }
+    }
 
-	@Override
-	public String getFragmentName() {
-		return SkyTubeApp.getStr(R.string.playlists);
-	}
+    @Override
+    public void onDestroy() {
+        playlistsGridAdapter.clearBackgroundTasks();
+        super.onDestroy();
+    }
 
-	@Override
-	public void onClickPlaylist(YouTubePlaylist playlist) {
-		if(mainActivityListener != null)
-			mainActivityListener.onPlaylistClick(playlist);
-	}
+    @Override
+    public String getFragmentName() {
+        return SkyTubeApp.getStr(R.string.playlists);
+    }
 
-	public void setMainActivityListener(MainActivityListener mainActivityListener) {
-		this.mainActivityListener = mainActivityListener;
-	}
+    @Override
+    public void onClickPlaylist(YouTubePlaylist playlist) {
+        if(mainActivityListener != null) {
+            mainActivityListener.onPlaylistClick(playlist);
+        }
+    }
 
-	@Override
-	public void onRefresh() {
-		playlistsGridAdapter.refresh(youTubePlaylists -> swipeRefreshLayout.setRefreshing(false));
-	}
+    public void setMainActivityListener(MainActivityListener mainActivityListener) {
+        this.mainActivityListener = mainActivityListener;
+    }
 
-	@Override
-	protected VideoCategory getVideoCategory() {
-		return null;
-	}
+    @Override
+    public void onRefresh() {
+        playlistsGridAdapter.refresh(youTubePlaylists -> gridviewBinding.swipeRefreshLayout.setRefreshing(false));
+    }
 
-	@Override
-	public int getPriority() {
-		return 6;
-	}
+    @Override
+    protected VideoCategory getVideoCategory() {
+        return null;
+    }
+
+    @Override
+    public int getPriority() {
+        return 6;
+    }
 }

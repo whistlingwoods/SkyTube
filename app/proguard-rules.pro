@@ -27,3 +27,14 @@
 -dontwarn java.awt.**
 -dontwarn javax.swing.**
 -dontwarn org.slf4j.impl.StaticLoggerBinder
+
+# New Rhino warnings
+-dontwarn java.beans.BeanDescriptor
+-dontwarn java.beans.BeanInfo
+-dontwarn java.beans.IntrospectionException
+-dontwarn java.beans.Introspector
+-dontwarn java.beans.PropertyDescriptor
+
+# jsoup re2j warnings
+-dontwarn com.google.re2j.Matcher
+-dontwarn com.google.re2j.Pattern

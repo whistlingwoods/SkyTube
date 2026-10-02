@@ -1,6 +1,6 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
-    <string name="feed">Subskrypcje</string>
+    <string name="feed">Kanał subskrypcji</string>
     <string name="subscribing_to_channels">Subskrybowanie kanałów…</string>
     <string name="fetching_subbed_channels_info">Pobieranie informacji o kanale…</string>
     <string name="fetching_subbed_channels_info_error">Nie udało się pobrać informacji o kanale.</string>
@@ -12,4 +12,5 @@
     <string name="notification_channel_feed_title">Powiadomienia z kanału subskrypcji</string>
     <string name="notification_new_videos_found">%d nowych filmów z subskrybowanych kanałów</string>
     <string name="open_channel">Otwórz kanał</string>
+    <string name="channel_related">Kanał…</string>
 </resources>

@@ -8,20 +8,14 @@ import androidx.annotation.ColorRes;
 import androidx.annotation.NonNull;
 import androidx.annotation.StringRes;
 
-import org.json.JSONArray;
-import org.json.JSONException;
+import com.grack.nanojson.JsonArray;
 
-import java.io.BufferedReader;
-import java.io.IOException;
-import java.io.InputStreamReader;
-import java.net.HttpURLConnection;
-import java.net.URL;
+import org.json.JSONArray;
 import java.util.Collections;
 import java.util.HashMap;
 import java.util.Map;
 import java.util.Set;
 
-import free.rm.skytube.BuildConfig;
 import free.rm.skytube.R;
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeService;
@@ -96,7 +90,7 @@ public class SBTasks {
         Log.d(TAG, "ApiUrl: " + apiUrl);
 
         try {
-            JSONArray sponsorblockInfo = NewPipeService.getHttpDownloader().getJSONArray(apiUrl);
+            JsonArray sponsorblockInfo = NewPipeService.getHttpDownloader().getJSONArray(apiUrl);
             return new SBVideoInfo(sponsorblockInfo);
         } catch(Exception e) {
             // FileNotFoundException = 404, which the API triggers both if the API call is invalid or no segment was found

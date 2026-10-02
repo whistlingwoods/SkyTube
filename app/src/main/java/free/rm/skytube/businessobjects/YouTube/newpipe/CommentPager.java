@@ -18,35 +18,63 @@ package free.rm.skytube.businessobjects.YouTube.newpipe;
 
 import org.schabi.newpipe.extractor.ListExtractor;
 import org.schabi.newpipe.extractor.StreamingService;
+import org.schabi.newpipe.extractor.comments.CommentsExtractor;
 import org.schabi.newpipe.extractor.comments.CommentsInfoItem;
+import org.schabi.newpipe.extractor.exceptions.ExtractionException;
 
+import java.io.IOException;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
+import java.util.Map;
 
-import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeComment;
-import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeCommentThread;
+public class CommentPager extends Pager<CommentsInfoItem, CommentsInfoItem> implements CommentPagerInterface {
 
-public class CommentPager extends Pager<CommentsInfoItem, YouTubeCommentThread> {
-    CommentPager(StreamingService streamingService, ListExtractor<CommentsInfoItem> commentExtractor) {
-        super(streamingService, commentExtractor);
+    private Boolean disabledComments;
+    private final List<CommentsInfoItem> allComments = new ArrayList<>();
+    private final CommentsExtractor commentsExtractor;
+
+    private Integer commentCount;
+
+    CommentPager(StreamingService streamingService, CommentsExtractor commentsExtractor) throws ExtractionException, IOException {
+        super(streamingService, commentsExtractor);
+        this.commentsExtractor = commentsExtractor;
     }
 
     @Override
-    protected List<YouTubeCommentThread> extract(ListExtractor.InfoItemsPage<CommentsInfoItem> page) {
-        List<YouTubeCommentThread> result = new ArrayList<>(page.getItems().size());
-        for (CommentsInfoItem infoItem : page.getItems()) {
-            YouTubeCommentThread thread = new YouTubeCommentThread(new YouTubeComment(
-                    infoItem.getUploaderUrl(),
-                    infoItem.getUploaderName(),
-                    infoItem.getThumbnailUrl(),
-                    infoItem.getCommentText(),
-                    infoItem.getTextualUploadDate(),
-                    infoItem.getLikeCount(),
-                    infoItem.isPinned(),
-                    infoItem.isHeartedByUploader()
-                    ));
-            result.add(thread);
-        }
-        return result;
+    protected List<CommentsInfoItem> process(ListExtractor.InfoItemsPage<? extends CommentsInfoItem> page) throws NewPipeException, ExtractionException {
+        this.commentCount = commentsExtractor.getCommentsCount();
+        this.disabledComments = commentsExtractor.isCommentsDisabled();
+        List<CommentsInfoItem> result = super.process(page);
+        allComments.addAll(result);
+        return new ArrayList<>(result);
     }
+
+    @Override
+    protected List<CommentsInfoItem> extract(ListExtractor.InfoItemsPage<? extends CommentsInfoItem> page) throws ExtractionException {
+        return (List<CommentsInfoItem>) page.getItems();
+    }
+
+    public CommentsInfoItem getComment(int idx) {
+        return 0 <= idx && idx < allComments.size() ? allComments.get(idx) : null;
+    }
+
+    public boolean isCommentsDisabled() {
+        return disabledComments != null ? disabledComments : false;
+    }
+
+    public int getCommentCount() {
+        return commentCount != null ? commentCount.intValue() : -1;
+    }
+
+    /**
+     * Returns the number of comments that have actually been loaded so far.
+     * This is different from getCommentCount() which returns the total number of comments available.
+     *
+     * @return the number of loaded comments
+     */
+    public int getLoadedCount() {
+        return allComments.size();
+    }
+
 }

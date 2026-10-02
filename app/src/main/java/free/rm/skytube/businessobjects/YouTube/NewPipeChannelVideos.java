@@ -16,10 +16,9 @@
  */
  package free.rm.skytube.businessobjects.YouTube;
 
-import org.schabi.newpipe.extractor.stream.StreamInfoItem;
-
 import java.util.Objects;
 
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeException;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeService;
 import free.rm.skytube.businessobjects.YouTube.newpipe.VideoPager;
@@ -27,24 +26,13 @@ import free.rm.skytube.businessobjects.YouTube.newpipe.VideoPager;
 /**
  * Adapter class to get list of videos from a channel.
  */
-public class NewPipeChannelVideos extends NewPipeVideos<StreamInfoItem> implements GetChannelVideosInterface {
+public class NewPipeChannelVideos extends NewPipeVideos {
 
-    private String channelId;
-
-    @Override
-    public void setChannelQuery(String channelId, boolean filterSubscribedVideos) {
-        this.channelId = Objects.requireNonNull(channelId, "channelId missing");
-    }
+    private ChannelId channelId;
 
     // Important, this is called from the channel tab
-    @Override
     public void setQuery(String query) {
-        this.channelId = Objects.requireNonNull(query, "query missing");
-    }
-
-    @Override
-    public void setPublishedAfter(long timeInMs) {
-
+        this.channelId = new ChannelId(query);
     }
 
     @Override

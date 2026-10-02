@@ -22,13 +22,17 @@ import android.net.Uri;
 
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.stream.AudioStream;
+import org.schabi.newpipe.extractor.stream.AudioTrackType;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.VideoStream;
 
 import java.util.ArrayList;
 import java.util.Arrays;
 import java.util.Collection;
+import java.util.Collections;
+import java.util.EnumSet;
 import java.util.List;
+import java.util.Set;
 
 import free.rm.skytube.R;
 import free.rm.skytube.BuildConfig;
@@ -53,6 +57,17 @@ public class StreamSelectionPolicy {
 
     public StreamSelectionPolicy withAllowVideoOnly(boolean newValue) {
         return new StreamSelectionPolicy(newValue, maxResolution, minResolution, videoQuality);
+    }
+
+    /**
+     * Returns a new policy that forces selection of the given
+     * {@link VideoResolution} by setting both min and max resolution to {@code res}.
+     *
+     * @param res the exact resolution to enforce during stream selection
+     * @return a new {@code StreamSelectionPolicy} restricted to {@code res}
+     */
+    public StreamSelectionPolicy withResolution(VideoResolution res) {
+        return new StreamSelectionPolicy(allowVideoOnly, res, res, videoQuality);
     }
 
     public StreamSelection select(StreamInfo streamInfo) {
@@ -105,7 +120,7 @@ public class StreamSelectionPolicy {
         }
         AudioStream best = null;
         for (AudioStream audioStream : streamInfo.getAudioStreams()) {
-            if (isBetter(best, audioStream)) {
+            if (isOriginalAudio(audioStream) && isBetter(best, audioStream)) {
                 if (BuildConfig.DEBUG) {
                     Logger.d(this, "better %s -> %s", toHumanReadable(best), toHumanReadable(audioStream));
                 }
@@ -122,12 +137,18 @@ public class StreamSelectionPolicy {
         return as != null ? "AudioStream(" + as.getAverageBitrate() + ", " + as.getFormat() + ", codec=" + as.getCodec() + ", q=" + as.getQuality() + ", isUrl=" + as.isUrl() + ",delivery=" + as.getDeliveryMethod() + ")" : "NULL";
     }
 
+    private static boolean isOriginalAudio(AudioStream audioStream) {
+        AudioTrackType trackType = audioStream.getAudioTrackType();
+        // Accept streams with ORIGINAL type, or with null type (unknown/legacy)
+        return trackType == null || trackType == AudioTrackType.ORIGINAL;
+    }
+
     private boolean isBetter(AudioStream best, AudioStream other) {
         if (best == null) {
             return true;
         }
         switch (videoQuality) {
-            case LEAST_BANDWITH:
+            case LEAST_BANDWIDTH:
                 return other.getAverageBitrate() < best.getAverageBitrate();
             case BEST_QUALITY:
                 return best.getAverageBitrate() < other.getAverageBitrate();
@@ -161,11 +182,37 @@ public class StreamSelectionPolicy {
         return pick(streams);
     }
 
+    /**
+     * Returns all valid video resolutions offered by the given {@link StreamInfo}.
+     * Includes DASH video‑only streams when {@code allowVideoOnly} is enabled.
+     * Filters out unsupported formats and non‑URL streams, then returns a
+     * deduplicated, highest‑to‑lowest list of {@link VideoResolution}.
+     * 
+     * @param streamInfo the full stream descriptor for the currently loaded video; must not be null
+     * @return a sorted list (highest first) of all valid {@link VideoResolution} values offered
+     *         by the video; never {@code null}, but may be empty if no playable streams exist
+     */
+    public List<VideoResolution> getAvailableResolutions(StreamInfo streamInfo) {
+        Set<VideoResolution> found = EnumSet.noneOf(VideoResolution.class);
+        List<VideoStream> streams = new ArrayList<>(streamInfo.getVideoStreams());
+        if (allowVideoOnly) {
+            streams.addAll(streamInfo.getVideoOnlyStreams());
+        }
+        for (VideoStream s : streams) {
+            if (!s.isUrl() || !isAllowedVideoFormat(s.getFormat())) continue;
+            VideoResolution r = VideoResolution.resolutionToVideoResolution(s.getResolution());
+            if (r != VideoResolution.RES_UNKNOWN) found.add(r);
+        }
+        List<VideoResolution> list = new ArrayList<>(found);
+        Collections.sort(list, Collections.reverseOrder()); // highest first
+        return list;
+    }
+
     private VideoStreamWithResolution pick(Collection<VideoStream> streams) {
         VideoStreamWithResolution best = null;
         for (VideoStream stream : streams) {
             VideoStreamWithResolution videoStream = new VideoStreamWithResolution(stream);
-            if (isAllowed(videoStream.resolution) && isAllowedVideoFormat(videoStream.videoStream.getFormat())) {
+            if (isAllowed(videoStream.resolution) && isAllowedVideoFormat(videoStream.videoStream.getFormat()) && stream.isUrl()) {
                 switch (videoQuality) {
                     case BEST_QUALITY:
                         if (videoStream.isBetterQualityThan(best)) {
@@ -175,7 +222,7 @@ public class StreamSelectionPolicy {
                             best = videoStream;
                         }
                         break;
-                    case LEAST_BANDWITH:
+                    case LEAST_BANDWIDTH:
                         if (videoStream.isLessNetworkUsageThan(best)) {
                             if (BuildConfig.DEBUG) {
                                 Logger.d(this, "less network %s -> %s", VideoStreamWithResolution.toHumanReadable(best), VideoStreamWithResolution.toHumanReadable(videoStream));
