@@ -101,6 +101,7 @@ public class VideoGridAdapter extends RecyclerViewAdapterEx<CardData, GridViewHo
 		compositeDisposable.clear();
 		PlaybackStatusDb.getPlaybackStatusDb().removeListener(this);
 		this.listener = null;
+		this.swipeRefreshLayout = null;
 		this.videoGridUpdated = null;
 	}
 
@@ -209,7 +210,7 @@ public class VideoGridAdapter extends RecyclerViewAdapterEx<CardData, GridViewHo
 	 * @param clearVideosList If set to true, it will clear out any previously loaded videos (found
 	 *                        in this adapter).
 	 */
-	public synchronized void refresh(boolean clearVideosList) {
+	public final synchronized void refresh(boolean clearVideosList) {
 		if (getYouTubeVideos != null && !refreshHappens) {
 			refreshHappens = true;
 			if (clearVideosList) {
@@ -218,8 +219,9 @@ public class VideoGridAdapter extends RecyclerViewAdapterEx<CardData, GridViewHo
 			// now, we consider this as initialized - sometimes 'refresh' can be called before the initializeList is called.
 			initialized = true;
 
-			compositeDisposable.add(YouTubeTasks.getYouTubeVideos(getYouTubeVideos, this,
-					swipeRefreshLayout, clearVideosList).subscribe());
+		compositeDisposable.add(YouTubeTasks.getYouTubeVideos(getYouTubeVideos, this,
+				swipeRefreshLayout, clearVideosList)
+				.subscribe(videos -> {}, error -> Logger.e(this, error, "Error refreshing videos")));
 		}
 	}
 
@@ -233,7 +235,8 @@ public class VideoGridAdapter extends RecyclerViewAdapterEx<CardData, GridViewHo
 			if(getYouTubeVideos != null) {
 				refreshHappens = true;
 				compositeDisposable.add(YouTubeTasks.getYouTubeVideos(getYouTubeVideos, this,
-						swipeRefreshLayout, false).subscribe());
+						swipeRefreshLayout, false)
+						.subscribe(videos -> {}, error -> Logger.e(this, error, "Error loading more videos")));
 			}
 		}
 	}

@@ -35,7 +35,7 @@ public class SkyTubeMaterialDialog extends MaterialDialog.Builder {
 		super(context);
 
 		titleColorRes(R.color.dialog_title);
-		backgroundColorRes(R.color.dialog_backgound);
+		backgroundColorRes(R.color.dialog_background);
 		contentColorRes(R.color.dialog_content_text);
 		positiveColorRes(R.color.dialog_positive_text);
 		negativeColorRes(R.color.dialog_negative_text);
@@ -49,7 +49,7 @@ public class SkyTubeMaterialDialog extends MaterialDialog.Builder {
 
 	public SkyTubeMaterialDialog onNegativeOrCancel(@NonNull DialogInterface.OnCancelListener callback) {
 		// No need to do anything on negativeCallback - because the cancelListener will be called in this case.
-		this.onNegativeCallback = null;
+        this.onNegativeCallback = null;
 		this.cancelListener = callback;
 		return this;
 	}

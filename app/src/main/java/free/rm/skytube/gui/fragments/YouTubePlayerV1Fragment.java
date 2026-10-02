@@ -18,6 +18,7 @@ import android.view.MenuItem;
 import android.view.View;
 import android.view.ViewGroup;
 import android.view.WindowManager;
+import android.widget.BaseExpandableListAdapter;
 import android.widget.Toast;
 
 import androidx.annotation.NonNull;
@@ -61,6 +62,7 @@ import free.rm.skytube.gui.businessobjects.ResumeVideoTask;
 import free.rm.skytube.gui.businessobjects.SkyTubeMaterialDialog;
 import free.rm.skytube.gui.businessobjects.adapters.CommentsAdapter;
 import free.rm.skytube.gui.businessobjects.fragments.ImmersiveModeFragment;
+import free.rm.skytube.gui.businessobjects.views.ChannelActionHandler;
 import free.rm.skytube.gui.businessobjects.views.Linker;
 import free.rm.skytube.businessobjects.interfaces.PlaybackStateListener;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
@@ -96,7 +98,7 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 	private int videoCurrentPosition = 0;
 	private MediaControllerEx mediaController = null;
 
-	private CommentsAdapter	commentsAdapter = null;
+	private BaseExpandableListAdapter commentsAdapter = null;
 
 	private Menu menu = null;
 	private YouTubePlayerActivityListener listener = null;
@@ -109,6 +111,7 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 	private int startVideoTime = -1;
 
 	private final CompositeDisposable compositeDisposable = new CompositeDisposable();
+	private final ChannelActionHandler actionHandler = new ChannelActionHandler(compositeDisposable);
 
 	@Override
 	public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -403,13 +406,13 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 
 		fragmentBinding.commentsDrawer.setOnDrawerOpenListener(() -> {
 			if (commentsAdapter == null && youTubeVideo != null) {
-				commentsAdapter = new CommentsAdapter(getActivity(), youTubeVideo.getId(),
+				commentsAdapter = CommentsAdapter.createAdapter(getActivity(), null, youTubeVideo.getId(),
 						fragmentBinding.commentsExpandableListView, fragmentBinding.commentsProgressBar,
-						fragmentBinding.noVideoCommentsTextView);
+						fragmentBinding.noVideoCommentsTextView, fragmentBinding.videoCommentsAreDisabled);
 			}
 		});
 
-		Linker.configure(videoDescriptionBinding.videoDescDescription);
+		Linker.configure(videoDescriptionBinding.videoDescDescription, null);
 	}
 
 	@Override
@@ -424,10 +427,10 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 	private void getVideoInfoTasks() {
 		// get Channel info (e.g. avatar...etc) task
 		compositeDisposable.add(DatabaseTasks.getChannelInfo(requireContext(), youTubeVideo.getChannelId(), false)
-				.subscribe(youTubeChannel1 -> {
-					youTubeChannel = youTubeChannel1;
+				.subscribe(persistentChannel -> {
+					youTubeChannel = persistentChannel.channel();
 
-					videoDescriptionBinding.videoDescSubscribeButton.setChannel(youTubeChannel);
+					videoDescriptionBinding.videoDescSubscribeButton.setChannelInfo(persistentChannel);
 					if (youTubeChannel != null) {
 						Glide.with(requireContext())
 								.load(youTubeChannel.getThumbnailUrl())
@@ -636,6 +639,14 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 	@Override
 	public void onPrepareOptionsMenu(@NonNull Menu menu) {
 		DatabaseTasks.updateDownloadedVideoMenu(youTubeVideo, menu);
+
+		if (youTubeVideo != null && youTubeVideo.getChannelId() != null) {
+			menu.findItem(R.id.subscribe_channel).setVisible(true);
+			menu.findItem(R.id.open_channel).setVisible(true);
+		} else {
+			menu.findItem(R.id.subscribe_channel).setVisible(false);
+			menu.findItem(R.id.open_channel).setVisible(false);
+		}
 	}
 
 	@Override
@@ -657,6 +668,9 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 
 	@Override
 	public boolean onOptionsItemSelected(MenuItem item) {
+		if (actionHandler.handleChannelActions(getContext(), youTubeChannel, item.getItemId())) {
+			return true;
+		}
 		switch (item.getItemId()) {
 			case R.id.menu_reload_video:
 				loadVideo();
@@ -696,10 +710,6 @@ public class YouTubePlayerV1Fragment extends ImmersiveModeFragment implements Me
 				if (decision == Policy.ALLOW) {
 					youTubeVideo.downloadVideo(getContext()).subscribe();
 				}
-				return true;
-
-            case R.id.block_channel:
-	            compositeDisposable.add(youTubeChannel.blockChannel().subscribe());
 				return true;
 			default:
 				return super.onOptionsItemSelected(item);

@@ -10,10 +10,7 @@ import android.widget.Toast;
 
 import androidx.annotation.NonNull;
 
-import com.google.gson.Gson;
-
-import org.json.JSONException;
-import org.json.JSONObject;
+import com.github.skytube.components.utils.SQLiteHelper;
 
 import java.io.File;
 import java.util.ArrayList;
@@ -24,11 +21,11 @@ import free.rm.skytube.R;
 import free.rm.skytube.app.Settings;
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.businessobjects.AsyncTaskParallel;
+import free.rm.skytube.businessobjects.JsonSerializer;
 import free.rm.skytube.businessobjects.Logger;
 import free.rm.skytube.businessobjects.Sponsorblock.SBTasks;
 import free.rm.skytube.businessobjects.Sponsorblock.SBVideoInfo;
 import free.rm.skytube.businessobjects.YouTube.POJOs.CardData;
-import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 import free.rm.skytube.businessobjects.YouTube.newpipe.VideoId;
 import free.rm.skytube.businessobjects.interfaces.OrderableDatabase;
@@ -46,11 +43,13 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
         final Uri uri;
         final Uri audioUri;
         final boolean disappeared;
+        final VideoId videoId;
 
-        public Status(Uri uri, Uri audioUri, boolean disappeared) {
+        public Status(VideoId videoId,Uri uri, Uri audioUri, boolean disappeared) {
             this.uri = uri;
             this.audioUri = audioUri;
             this.disappeared = disappeared;
+            this.videoId = videoId;
         }
 
         public Uri getUri() {
@@ -79,6 +78,11 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
             return localFile != null ? localFile.getParentFile() : null;
         }
 
+        public long getLocalSize() {
+            File video = getLocalVideoFile();
+            File audio = getLocalAudioFile();
+            return (video != null ? video.length() : 0) + (audio != null ? audio.length() : 0);
+        }
         public Uri getAudioUri() {
             return audioUri;
         }
@@ -96,9 +100,13 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
             if (audioUri != null) {
                 sb.append(", audioUri=").append(audioUri);
             }
-            sb.append(", disapeared=").append(disappeared);
+            sb.append(", disappeared=").append(disappeared);
             sb.append('}');
             return sb.toString();
+        }
+
+        public VideoId getVideoId() {
+            return videoId;
         }
     }
 
@@ -120,6 +128,8 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
 
     private static final int DATABASE_VERSION = 3;
     private static final String DATABASE_NAME = "videodownloads.db";
+
+    private final JsonSerializer jsonSerializer = new JsonSerializer();
 
     public static synchronized DownloadedVideosDb getVideoDownloadsDb() {
         if (downloadsDb == null) {
@@ -158,6 +168,32 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
         return getDownloadedVideos(DownloadedVideosTable.COL_ORDER + " DESC");
     }
 
+    /**
+     * Get the list Statuses of Videos that have been downloaded.
+     *
+     * @return List of Status
+     */
+    public List<Status> getDownloadedVideosStatuses() {
+        SkyTubeApp.nonUiThread();
+
+        try (Cursor cursor = getReadableDatabase().query(
+                DownloadedVideosTable.TABLE_NAME,
+                new String[]{DownloadedVideosTable.COL_YOUTUBE_VIDEO_ID, DownloadedVideosTable.COL_FILE_URI, DownloadedVideosTable.COL_AUDIO_FILE_URI},
+                null,
+                null, null, null, null)) {
+            List<Status> statuses = new ArrayList<>();
+
+            while (cursor.moveToNext()) {
+                String id = cursor.getString(cursor.getColumnIndex(DownloadedVideosTable.COL_YOUTUBE_VIDEO_ID));
+                statuses.add(new Status(VideoId.create(id),
+                        getUri(cursor, cursor.getColumnIndex(DownloadedVideosTable.COL_FILE_URI)),
+                        getUri(cursor, cursor.getColumnIndex(DownloadedVideosTable.COL_AUDIO_FILE_URI)),
+                        false));
+            }
+            return statuses;
+        }
+    }
+
     public SBVideoInfo getDownloadedVideoSponsorblock(String videoId) {
         SkyTubeApp.nonUiThread();
         try (Cursor cursor = getReadableDatabase().query(
@@ -168,11 +204,12 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
 
             SBVideoInfo result = null;
             if (cursor.moveToNext()) {
-                Gson gson = new Gson();
                 do {
                     final byte[] sbBlob = cursor.getBlob(cursor.getColumnIndex(DownloadedVideosTable.COL_SB));
-                    final String sbJson = new String(sbBlob);
-                    result = gson.fromJson(sbJson, SBVideoInfo.class);
+                    if (sbBlob == null) {
+                        return null;
+                    }
+                    result = jsonSerializer.fromSponsorBlockJson(new String(sbBlob));
                 } while (cursor.moveToNext());
             }
 
@@ -194,27 +231,12 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
             List<YouTubeVideo> videos = new ArrayList<>();
 
             if (cursor.moveToNext()) {
-                Gson gson = new Gson();
                 do {
                     final byte[] blob = cursor.getBlob(cursor.getColumnIndex(DownloadedVideosTable.COL_YOUTUBE_VIDEO));
-                    final String videoJson = new String(blob);
 
                     // convert JSON into YouTubeVideo
-                    YouTubeVideo video = gson.fromJson(videoJson, YouTubeVideo.class).updatePublishTimestampFromDate();
+                    YouTubeVideo video = jsonSerializer.fromPersistedVideoJson(blob);
 
-                    // due to upgrade to YouTubeVideo (by changing channel{Id,Name} to YouTubeChannel)
-                    // from version 2.82 to 2.90
-                    if (video.getChannel() == null) {
-                        try {
-                            JSONObject videoJsonObj = new JSONObject(videoJson);
-                            final String channelId = videoJsonObj.get("channelId").toString();
-                            final String channelName = videoJsonObj.get("channelName").toString();
-                            video.setChannel(new YouTubeChannel(channelId, channelName));
-                        } catch (JSONException e) {
-                            Logger.e(this, "Error occurred while extracting channel{Id,Name} from JSON", e);
-                        }
-                    }
-                    video.forceRefreshPublishDatePretty();
                     videos.add(video);
                 } while (cursor.moveToNext());
             }
@@ -225,10 +247,9 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
     public Single<Boolean> add(YouTubeVideo video, Uri fileUri, Uri audioUri) {
         return Single.fromCallable(() -> {
 
-                    Gson gson = new Gson();
                     ContentValues values = new ContentValues();
                     values.put(DownloadedVideosTable.COL_YOUTUBE_VIDEO_ID, video.getId());
-                    values.put(DownloadedVideosTable.COL_YOUTUBE_VIDEO, gson.toJson(video).getBytes());
+                    values.put(DownloadedVideosTable.COL_YOUTUBE_VIDEO, jsonSerializer.toPersistedVideoJson(video).getBytes());
                     if (fileUri != null) {
                         values.put(DownloadedVideosTable.COL_FILE_URI, fileUri.toString());
                     }
@@ -237,7 +258,7 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
                     }
                     if (SkyTubeApp.getSettings().isSponsorblockEnabled()) {
                         SBVideoInfo sbInfo = SBTasks.retrieveSponsorblockSegmentsBk(video.getVideoId());
-                        values.put(DownloadedVideosTable.COL_SB, gson.toJson(sbInfo).getBytes());
+                        values.put(DownloadedVideosTable.COL_SB, jsonSerializer.toPersistedSponsorBlockJson(sbInfo).getBytes());
                     }
 
                     int order = getMaximumOrderNumber();
@@ -367,7 +388,7 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
                 new String[]{videoId.getId()}, null, null, null)) {
 
             if (cursor.moveToNext()) {
-                return new Status(
+                return new Status(videoId,
                         getUri(cursor, cursor.getColumnIndex(DownloadedVideosTable.COL_FILE_URI)),
                         getUri(cursor, cursor.getColumnIndex(DownloadedVideosTable.COL_AUDIO_FILE_URI)),
                         false);
@@ -401,7 +422,7 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
                             if (!localVideo.exists()) {
                                 deleteIfExists(downloadStatus.getLocalAudioFile());
                                 remove(videoId.getId());
-                                return new Status(null, null, true);
+                                return new Status(videoId, null, null, true);
                             }
                         }
                         File localAudio = downloadStatus.getLocalAudioFile();
@@ -409,12 +430,12 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
                             if (!localAudio.exists()) {
                                 deleteIfExists(downloadStatus.getLocalVideoFile());
                                 remove(videoId.getId());
-                                return new Status(null, null, true);
+                                return new Status(videoId, null, null, true);
                             }
                         }
                         return downloadStatus;
                     }
-                    return new Status(null, null, false);
+                    return new Status(videoId, null, null, false);
                 }).subscribeOn(Schedulers.io())
                 .observeOn(AndroidSchedulers.mainThread());
     }
@@ -429,7 +450,7 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
     Single<Status> getDownloadedFileStatus(Context context, @NonNull VideoId videoId) {
         return getVideoFileUriAndValidate(videoId).onErrorReturn(error -> {
             displayGenericError(context, error);
-            return new Status(null, null, true);
+            return new Status(videoId, null, null, true);
         });
     }
 
@@ -481,7 +502,7 @@ public class DownloadedVideosDb extends CardEventEmitterDatabase implements Orde
      */
     public Single<Integer> getTotalCount() {
         return Single.fromCallable(() ->
-                executeQueryForInteger(DownloadedVideosTable.COUNT_ALL, 0)
+                SQLiteHelper.executeQueryForInteger(getReadableDatabase(), DownloadedVideosTable.COUNT_ALL, 0)
         ).subscribeOn(Schedulers.io());
     }
 

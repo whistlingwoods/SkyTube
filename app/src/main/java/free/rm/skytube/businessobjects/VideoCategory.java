@@ -19,19 +19,16 @@ package free.rm.skytube.businessobjects;
 
 import android.util.Log;
 
+import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.businessobjects.YouTube.GetBookmarksVideos;
 import free.rm.skytube.businessobjects.YouTube.GetChannelVideosFull;
-import free.rm.skytube.businessobjects.YouTube.GetChannelVideosInterface;
-import free.rm.skytube.businessobjects.YouTube.GetChannelVideosLite;
 import free.rm.skytube.businessobjects.YouTube.GetDownloadedVideos;
 import free.rm.skytube.businessobjects.YouTube.GetFeaturedVideos;
-import free.rm.skytube.businessobjects.YouTube.GetMostPopularVideos;
 import free.rm.skytube.businessobjects.YouTube.GetYouTubeVideos;
 import free.rm.skytube.businessobjects.YouTube.NewPipeChannelVideos;
 import free.rm.skytube.businessobjects.YouTube.NewPipePlaylistVideos;
 import free.rm.skytube.businessobjects.YouTube.NewPipeVideoBySearch;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeAPIKey;
-import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeService;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeTrendingItems;
 import free.rm.skytube.businessobjects.db.Tasks.GetSubscriptionsVideosFromDb;
 
@@ -73,7 +70,7 @@ public enum VideoCategory {
 	}
 
 	/**
-	 * Creates a new instance of {@link GetFeaturedVideos} or {@link GetMostPopularVideos} ...etc
+	 * Creates a new instance of {@link GetFeaturedVideos} or {@link NewPipeTrendingItems} ...etc
 	 * depending on the video category.
 	 *
 	 * @return New instance of {@link GetYouTubeVideos}.
@@ -81,9 +78,9 @@ public enum VideoCategory {
 	public GetYouTubeVideos createGetYouTubeVideos() {
 		switch (this) {
 			case FEATURED: return new GetFeaturedVideos();
-			case MOST_POPULAR: return new NewPipeTrendingItems(); //new GetMostPopularVideos();
+			case MOST_POPULAR: return new NewPipeTrendingItems();
 			case SEARCH_QUERY: return new NewPipeVideoBySearch();
-			case CHANNEL_VIDEOS: return (GetYouTubeVideos) createChannelVideosFetcher();
+			case CHANNEL_VIDEOS: return createChannelVideosFetcher();
 			case SUBSCRIPTIONS_FEED_VIDEOS: return new GetSubscriptionsVideosFromDb();
 			case BOOKMARKS_VIDEOS: return new GetBookmarksVideos();
 			case MIXED_PLAYLIST_VIDEOS:
@@ -104,10 +101,10 @@ public enum VideoCategory {
 	 *
 	 * <p>This class will detect if the user is using his own YouTube API key or not... if they are, then
 	 * we are going to use {@link GetChannelVideosFull}; otherwise we are going to use
-	 * {@link GetChannelVideosLite}.</p>
+	 * {@link NewPipeChannelVideos}.</p>
 	 */
-	public static GetChannelVideosInterface createChannelVideosFetcher() {
-		if (NewPipeService.isPreferred()) {
+	public static GetYouTubeVideos createChannelVideosFetcher() {
+		if (SkyTubeApp.getSettings().isUseNewPipe()) {
 			return new NewPipeChannelVideos();
 		}
 		if (YouTubeAPIKey.get().isUserApiKeySet()) {

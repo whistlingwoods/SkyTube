@@ -16,8 +16,6 @@
  */
 package free.rm.skytube.businessobjects.YouTube;
 
-import org.schabi.newpipe.extractor.InfoItem;
-
 import java.util.Collections;
 import java.util.List;
 
@@ -29,9 +27,8 @@ import free.rm.skytube.businessobjects.YouTube.newpipe.VideoPager;
 /**
  * Base class to adapt the UI to the NewPipe based paging.
  *
- * @param <ITEM>
  */
-public abstract class NewPipeVideos<ITEM extends InfoItem> extends GetYouTubeVideos {
+public abstract class NewPipeVideos extends GetYouTubeVideos {
 
     private VideoPager pager;
 
@@ -47,7 +44,7 @@ public abstract class NewPipeVideos<ITEM extends InfoItem> extends GetYouTubeVid
             try {
                 pager = createNewPager();
             } catch (Exception e) {
-                Logger.e(this, "An error has occurred while getting videos:" + e.getMessage(), e);
+                Logger.e(this, "An error has occurred while creating pager:" + e.getMessage(), e);
                 setLastException(e);
                 return Collections.emptyList();
             }

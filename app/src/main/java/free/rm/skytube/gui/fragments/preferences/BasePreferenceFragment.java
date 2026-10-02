@@ -20,10 +20,20 @@ import android.content.SharedPreferences;
 
 import androidx.preference.PreferenceFragmentCompat;
 
+import free.rm.skytube.gui.businessobjects.PinUtils;
+
 /**
  * Base class for Preference pages, which wants to act after the preference are saved.
  */
 abstract class BasePreferenceFragment extends PreferenceFragmentCompat implements SharedPreferences.OnSharedPreferenceChangeListener {
+    @Override
+    public void onCreatePreferences(android.os.Bundle savedInstanceState, String rootKey) {
+        PinUtils.checkPinRequired(getContext(),
+            () -> showPreferencesInternal(rootKey),
+            () -> requireActivity().getOnBackPressedDispatcher().onBackPressed());
+    }
+
+    protected abstract void showPreferencesInternal(String rootKey);
 
     @Override
     public void onResume() {

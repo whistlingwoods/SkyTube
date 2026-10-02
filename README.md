@@ -58,7 +58,7 @@ If you have older Android device - however, at least 4.0, you should try [SkyTub
 | Official YouTube player support* | ✅                   | ❌       |
 | Chromecast Support*              | ✅                   | ❌       |
 | Updates availability             | Immediate            | Normally up to 5 days |
-| Download APK                     | [![Download SkyTube Extra APK](screenshots/download_apk.png)](https://github.com/SkyTubeTeam/SkyTube/releases/download/v2.984/SkyTube-Extra-2.984.apk) | [![Download SkyTube (Vanilla) APK](https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Get_it_on_F-Droid.svg/200px-Get_it_on_F-Droid.svg.png)](https://f-droid.org/repository/browse/?fdid=free.rm.skytube.oss)
+| Download APK                     | [![Download SkyTube Extra APK](screenshots/download_apk.png)](https://github.com/SkyTubeTeam/SkyTube/releases/download/v2.999/SkyTube-Extra-2.999.apk) | [![Download SkyTube (Vanilla) APK](https://upload.wikimedia.org/wikipedia/commons/thumb/0/0d/Get_it_on_F-Droid.svg/200px-Get_it_on_F-Droid.svg.png)](https://f-droid.org/packages/free.rm.skytube.oss/)
 
 _* powered by a closed-source, third-party library._
 
@@ -83,28 +83,28 @@ You can help us translate this app into your native language by visiting [SkyTub
 ## Screenshots
 ### Phone
 
-<a href="https://skytube-app.com#features">
-<img src="https://skytube-app.com/assets/img/screenshots/trending.jpg" alt="Trending" height="250px"/>
+<a href="screenshots/trending.jpg">
+<img src="screenshots/trending.jpg" alt="Trending" width="140px"/>
 </a>
 
-<a href="https://skytube-app.com#features">
-<img src="https://skytube-app.com/assets/img/screenshots/channel.jpg" alt="Browse video" height="250px"/>
+<a href="screenshots/channel.jpg">
+<img src="screenshots/channel.jpg" alt="Browse video" width="444px"/>
 </a>
 
-<a href="https://skytube-app.com#features">
-<img src="https://skytube-app.com/assets/img/screenshots/play.jpg" alt="Play video" height="250px"/>
+<a href="screenshots/play.jpg">
+<img src="screenshots/play.jpg" alt="Play video" width="444px"/>
 </a>
 
-<a href="https://skytube-app.com#features">
-<img src="https://skytube-app.com/assets/img/screenshots/subs.jpg" alt="Subscriptions" height="250px"/>
+<a href="screenshots/subs.jpg">
+<img src="screenshots/subs.jpg" alt="Subscriptions" width="140px"/>
 </a>
 
-<a href="https://skytube-app.com#features">
-<img src="https://raw.githubusercontent.com/JamesCullum/SkyTube/master/screenshots/sb_skipped.png" alt="SponsorBlock" width="450px"/>
+<a href="screenshots/sb_skipped.png">
+<img src="screenshots/sb_skipped.png" alt="SponsorBlock" width="450px"/>
 </a>
 
 ### Tablet
-![Browse channel using tablet](https://skytube-app.com/assets/img/screenshots/channel_tablet.jpg)
+![Browse channel using tablet](screenshots/channel_tablet.jpg)
 
 ## Contribute
 This project was possible with the support and contribution of [numerous volunteers and third-party projects](http://skytube-app.com/credits.html).
@@ -117,3 +117,8 @@ Help improve SkyTube by [translating](https://github.com/SkyTubeTeam/SkyTube/wik
 
 This project is not affiliated with YouTube™ or any of its partners and/or products.
 YouTube™ and Android™ are registered trademarks of Google Inc.
+
+## Star History
+
+[![Star History Chart](https://star-history.dera.page/svg?repos=SkyTubeTeam/SkyTube&type=Date)](https://star-history.dera.page/#SkyTubeTeam/SkyTube&Date)
+

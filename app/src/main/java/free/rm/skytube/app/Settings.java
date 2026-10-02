@@ -17,8 +17,7 @@
 
 package free.rm.skytube.app;
 
-import static free.rm.skytube.app.SkyTubeApp.getContext;
-
+import android.content.Context;
 import android.content.SharedPreferences;
 import android.os.Build;
 import android.os.Environment;
@@ -65,7 +64,7 @@ public class Settings {
         migrate(sharedPreferences, "pref_key_video_preferred_resolution", R.string.pref_key_video_download_maximum_resolution);
         setDefault(sharedPreferences, R.string.pref_key_video_quality, VideoQuality.BEST_QUALITY.name());
         setDefault(sharedPreferences, R.string.pref_key_video_quality_for_downloads, VideoQuality.BEST_QUALITY.name());
-        setDefault(sharedPreferences, R.string.pref_key_video_quality_on_mobile, VideoQuality.LEAST_BANDWITH.name());
+        setDefault(sharedPreferences, R.string.pref_key_video_quality_on_mobile, VideoQuality.LEAST_BANDWIDTH.name());
         setDefault(sharedPreferences, R.string.pref_key_use_newer_formats, Build.VERSION.SDK_INT > 16);
         setDefault(sharedPreferences, R.string.pref_key_playback_speed, "1.0");
         Set<String> defaultTabs = new HashSet<>();
@@ -125,6 +124,20 @@ public class Settings {
         return SkyTubeApp.getPreferenceManager().getBoolean("pref_key_enable_sponsorblock", false);
     }
 
+    public boolean isPinSet() {
+        String pin = getPreference(R.string.pref_key_security_pin, "");
+        return pin != null && !pin.isEmpty();
+    }
+
+    public void removePin() {
+        setPreference(R.string.pref_key_security_pin, "");
+    }
+
+    public boolean isCorrectSecurityPin(String pinCode) {
+        String storedPin = getPreference(R.string.pref_key_security_pin, "");
+        return storedPin.isEmpty() || storedPin.equals(pinCode);
+    }
+
     public boolean isUseDislikeApi() {
         return getPreference(R.string.pref_key_use_dislike_api, false);
     }
@@ -179,7 +192,13 @@ public class Settings {
         }
         VideoResolution maxResolution = VideoResolution.videoResIdToVideoResolution(maxResIdValue);
         VideoResolution minResolution = VideoResolution.videoResIdToVideoResolution(minResIdValue);
-        VideoQuality quality = VideoQuality.valueOf(qualityValue);
+        final VideoQuality quality;
+        // Fixing an old typo
+        if ("LEAST_BANDWITH".equals(qualityValue)) {
+            quality = VideoQuality.LEAST_BANDWIDTH;;
+        } else {
+            quality = VideoQuality.valueOf(qualityValue);
+        }
 
         boolean useNewFormats = prefs.getBoolean(SkyTubeApp.getStr(R.string.pref_key_use_newer_formats), false);
 
@@ -204,6 +223,19 @@ public class Settings {
 
     public boolean isDisableGestures() {
         return getPreference(R.string.pref_key_disable_screen_gestures, false);
+    }
+
+    public boolean isEnableVideoBlocker() {
+        return getPreference(R.string.pref_key_enable_video_blocker, true);
+    }
+
+    /**
+     * @return True if channel deny list is enabled;  false if channel allow list is enabled.
+     */
+    public boolean isChannelDenyListEnabled() {
+        final String defValue = getStr(R.string.channel_blacklisting_filtering);
+        final String channelFilter = getPreference(R.string.pref_key_channel_filter_method, defValue);
+        return channelFilter.equals(defValue);
     }
 
     public void setDisableGestures(boolean disableGestures) {
@@ -358,6 +390,13 @@ public class Settings {
 
     public void setDisplayedReleaseNoteTag(String newValue) {
         setPreference(LATEST_RELEASE_NOTES_DISPLAYED, newValue);
+    }
+
+    /**
+     * @return true, if NewPipe is the preferred backend API
+     */
+    public boolean isUseNewPipe() {
+        return getPreference(R.string.pref_use_default_newpipe_backend, true);
     }
 
     public float getDefaultPlaybackSpeed() {

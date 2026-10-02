@@ -43,6 +43,7 @@ import androidx.annotation.Nullable;
 import androidx.annotation.RequiresApi;
 import androidx.core.app.NotificationChannelCompat;
 import androidx.core.app.NotificationManagerCompat;
+import androidx.core.app.PendingIntentCompat;
 import androidx.core.content.ContextCompat;
 import androidx.core.content.res.ResourcesCompat;
 import androidx.core.graphics.ColorUtils;
@@ -54,7 +55,6 @@ import com.google.api.client.googleapis.json.GoogleJsonError;
 import com.google.api.client.googleapis.json.GoogleJsonResponseException;
 
 import org.ocpsoft.prettytime.PrettyTime;
-import org.schabi.newpipe.extractor.exceptions.FoundAdException;
 import org.schabi.newpipe.extractor.exceptions.ReCaptchaException;
 
 import java.io.IOException;
@@ -69,6 +69,7 @@ import free.rm.skytube.businessobjects.FeedUpdaterReceiver;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubePlaylist;
 import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.YouTube.newpipe.ContentId;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeService;
 import free.rm.skytube.businessobjects.db.DatabaseTasks;
@@ -78,7 +79,6 @@ import free.rm.skytube.gui.fragments.ChannelBrowserFragment;
 import free.rm.skytube.gui.fragments.FragmentNames;
 import free.rm.skytube.gui.fragments.PlaylistVideosFragment;
 import io.reactivex.rxjava3.core.Completable;
-import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.exceptions.UndeliverableException;
 import io.reactivex.rxjava3.plugins.RxJavaPlugins;
 import io.reactivex.rxjava3.schedulers.Schedulers;
@@ -98,8 +98,6 @@ public class SkyTubeApp extends MultiDexApplication {
 	public static final String KEY_SUBSCRIPTIONS_LAST_UPDATED = "SkyTubeApp.KEY_SUBSCRIPTIONS_LAST_UPDATED";
 	public static final String NEW_VIDEOS_NOTIFICATION_CHANNEL = "free.rm.skytube.NEW_VIDEOS_NOTIFICATION_CHANNEL";
 	public static final int NEW_VIDEOS_NOTIFICATION_CHANNEL_ID = 1;
-
-	private static final CompositeDisposable COMPOSITE_DISPOSABLE = new CompositeDisposable();
 
 	@Override
 	public void onCreate() {
@@ -122,7 +120,7 @@ public class SkyTubeApp extends MultiDexApplication {
 					.detectLeakedSqlLiteObjects()
 					.detectLeakedClosableObjects()
 					.penaltyLog()
-					.penaltyDeath()
+					//.penaltyDeath()
 					.build());
 		}
 		initChannels();
@@ -158,9 +156,13 @@ public class SkyTubeApp extends MultiDexApplication {
 	}
 
 	private static void preloadPrettyTime() {
-		Completable.fromAction(() -> {
-			new PrettyTime().format(LocalDate.of(2021, 2, 23));
-		}).subscribeOn(Schedulers.io()).subscribe();
+		Completable.fromAction(() -> new PrettyTime().format(LocalDate.of(2021, 2, 23)))
+				.subscribeOn(Schedulers.io())
+				.onErrorReturn(exc -> {
+					Log.e(TAG, "Unable to initialize PrettyTime, because: " + exc.getMessage(), exc);
+					return "";
+				})
+				.subscribe();
 	}
 
 	@RequiresApi(api = Build.VERSION_CODES.M)
@@ -195,12 +197,6 @@ public class SkyTubeApp extends MultiDexApplication {
 				Log.i(TAG, "Expected to be non-UI thread : " + Thread.currentThread().getName() + " [" + Build.VERSION.SDK_INT + ']');
 			}
 		}
-	}
-
-	@Override
-	public void onTerminate() {
-		COMPOSITE_DISPOSABLE.clear();
-		super.onTerminate();
 	}
 
 	/**
@@ -356,7 +352,7 @@ public class SkyTubeApp extends MultiDexApplication {
 	 */
 	public static void setFeedUpdateInterval(int interval) {
 		Intent alarm = new Intent(getContext(), FeedUpdaterReceiver.class);
-		PendingIntent pendingIntent = PendingIntent.getBroadcast(getContext(), 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT);
+		PendingIntent pendingIntent = PendingIntentCompat.getBroadcast(getContext(), 0, alarm, PendingIntent.FLAG_CANCEL_CURRENT, false);
 		AlarmManager alarmManager = ContextCompat.getSystemService(getContext(), AlarmManager.class);
 
 		// Feed Auto Updater has been cancelled. If the selected interval is greater than 0, set the new alarm to call FeedUpdaterService
@@ -373,40 +369,44 @@ public class SkyTubeApp extends MultiDexApplication {
 		return settings;
 	}
 
-	public static void notifyUserOnError(@NonNull Context ctx, @Nullable Throwable throwable) {
-		if (throwable == null) {
-			return;
-		}
+    public static void notifyUserOnError(@NonNull Context ctx, @Nullable Throwable throwable) {
+        if (throwable == null) {
+            return;
+        }
         if (throwable instanceof ReCaptchaException) {
             handleRecaptchaException(ctx, (ReCaptchaException) throwable);
             return;
         }
-		final String message;
-		if (throwable instanceof GoogleJsonResponseException) {
-			GoogleJsonResponseException exception = (GoogleJsonResponseException) throwable;
-			List<GoogleJsonError.ErrorInfo> errors = exception.getDetails().getErrors();
-			if (errors != null && !errors.isEmpty()) {
-				message =  "Server error:" + errors.get(0).getMessage()+ ", reason: "+ errors.get(0).getReason();
-			} else {
-				message = exception.getDetails().getMessage();
-			}
-		} else {
-			message = throwable.getMessage();
-		}
-		if (message != null) {
-			Log.e(TAG, "Error: "+message);
+        final String message = getMessage(throwable);
+        if (message != null) {
+            Log.e(TAG, "Error: " + message);
 
-			String toastText = message;
-			if(message.contains("resolve host")) {
-				toastText = "No internet connection available";
-			}
-			if(message.contains("JavaScript player")) {
-				return; // Error from Player when watching downloaded videos offline
-			}
+            String toastText = message;
+            if (message.contains("resolve host")) {
+                toastText = "No internet connection available";
+            }
+            if (message.contains("JavaScript player")) {
+                return; // Error from Player when watching downloaded videos offline
+            }
 
-			Toast.makeText(ctx, toastText, Toast.LENGTH_LONG).show();
-		}
-	}
+            Toast.makeText(ctx, toastText, Toast.LENGTH_LONG).show();
+        }
+    }
+
+    @Nullable
+    private static String getMessage(@NonNull Throwable throwable) {
+        if (throwable instanceof GoogleJsonResponseException) {
+            GoogleJsonResponseException exception = (GoogleJsonResponseException) throwable;
+            List<GoogleJsonError.ErrorInfo> errors = exception.getDetails().getErrors();
+            if (errors != null && !errors.isEmpty()) {
+                return  "Server error:" + errors.get(0).getMessage()+ ", reason: "+ errors.get(0).getReason();
+            } else {
+                return exception.getDetails().getMessage();
+            }
+        } else {
+            return throwable.getMessage();
+        }
+    }
 
     private static void handleRecaptchaException(Context context, ReCaptchaException reCaptchaException) {
         // remove "pbj=1" parameter from YouYube urls, as it makes the page JSON and not HTML
@@ -494,16 +494,16 @@ public class SkyTubeApp extends MultiDexApplication {
 		}
 		switch (content.getType()) {
 			case STREAM: {
-				COMPOSITE_DISPOSABLE.add(YouTubePlayer.launch(content, ctx));
+				YouTubePlayer.launch(content, ctx);
 				break;
 			}
 			case CHANNEL: {
-				SkyTubeApp.launchChannel(content.getId(), ctx);
+				SkyTubeApp.launchChannel(new ChannelId(content.getId()), ctx);
 				break;
 			}
 			case PLAYLIST: {
-				COMPOSITE_DISPOSABLE.add(YouTubeTasks.getPlaylist(ctx, content.getId())
-						.subscribe(playlist -> launchPlaylist(playlist, ctx)));
+				YouTubeTasks.getPlaylist(ctx, content.getId())
+						.subscribe(playlist -> launchPlaylist(playlist, ctx));
 				break;
 			}
 			default:
@@ -518,10 +518,10 @@ public class SkyTubeApp extends MultiDexApplication {
 	 *
 	 * @param channelId the channel to be displayed.
 	 */
-	public static void launchChannel(String channelId, Context context) {
+	public static void launchChannel(ChannelId channelId, Context context) {
 		if (channelId != null) {
-			COMPOSITE_DISPOSABLE.add(DatabaseTasks.getChannelInfo(context, channelId, true)
-					.subscribe(youTubeChannel -> launchChannel(youTubeChannel, context)));
+			DatabaseTasks.getChannelInfo(context, channelId, true)
+					.subscribe(youTubeChannel -> launchChannel(youTubeChannel.channel(), context));
 		}
 	}
 

@@ -24,11 +24,12 @@ import com.github.skytube.components.httpclient.OkHttpDownloader;
 
 import org.json.JSONException;
 import org.json.JSONObject;
-import org.schabi.newpipe.extractor.ListExtractor;
 import org.schabi.newpipe.extractor.NewPipe;
 import org.schabi.newpipe.extractor.ServiceList;
 import org.schabi.newpipe.extractor.StreamingService;
 import org.schabi.newpipe.extractor.channel.ChannelExtractor;
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabExtractor;
+import org.schabi.newpipe.extractor.channel.tabs.ChannelTabs;
 import org.schabi.newpipe.extractor.comments.CommentsExtractor;
 import org.schabi.newpipe.extractor.downloader.Response;
 import org.schabi.newpipe.extractor.exceptions.ExtractionException;
@@ -49,18 +50,22 @@ import org.schabi.newpipe.extractor.search.SearchExtractor;
 import org.schabi.newpipe.extractor.stream.StreamExtractor;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.subscription.SubscriptionExtractor;
+import org.schabi.newpipe.extractor.utils.Utils;
 
 import java.io.IOException;
+import java.net.MalformedURLException;
+import java.net.URL;
 import java.time.Instant;
 import java.time.format.DateTimeFormatter;
+import java.util.Collections;
 import java.util.List;
 import java.util.Objects;
 
 import free.rm.skytube.BuildConfig;
-import free.rm.skytube.R;
 import free.rm.skytube.app.Settings;
 import free.rm.skytube.app.SkyTubeApp;
 import free.rm.skytube.businessobjects.Logger;
+import free.rm.skytube.businessobjects.YouTube.POJOs.PersistentChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 
@@ -70,10 +75,57 @@ import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeVideo;
 public class NewPipeService {
     // TODO: remove this singleton
     private static NewPipeService instance;
+    private final static boolean VERBOSE_DISLIKE_COUNT_LOG = false;
 
     private final StreamingService streamingService;
     private final Settings settings;
     final static boolean DEBUG_LOG = false;
+
+    static class ChannelWithExtractor {
+        final YouTubeChannel channel;
+        final ChannelExtractor extractor;
+
+        ChannelWithExtractor(YouTubeChannel channel, ChannelExtractor extractor) {
+            this.channel = channel;
+            this.extractor = extractor;
+        }
+
+        ListLinkHandler findListLinkHandler(String name) throws ParsingException {
+            List<ListLinkHandler> tabs = extractor.getTabs();
+            Logger.d(instance, "Looking for tab '%s' among %d tabs: %s", name, tabs.size(), tabs);
+            return tabs.stream()
+                .filter(linkHandler -> {
+                    List<String> filters = linkHandler.getContentFilters();
+                    return filters != null && filters.contains(name);
+                }).findAny().orElse(null);
+        }
+
+        ChannelTabExtractor findChannelTab(String name) throws ParsingException {
+            ListLinkHandler listLinkHandler = findListLinkHandler(name);
+            if(listLinkHandler != null) {
+                try {
+                    return instance.streamingService.getChannelTabExtractor(listLinkHandler);
+                } catch (ExtractionException e) {
+                    Logger.e(instance, "findChannelTab (" + name + ") : " + listLinkHandler + ", err:" + e.getMessage(), e);
+                    return null;
+                }
+            }
+            return null;
+        }
+
+        ChannelTabExtractor findVideosTab() throws ParsingException {
+            return findChannelTab(ChannelTabs.VIDEOS);
+        }
+
+        ChannelTabExtractor findPlaylistTab() throws ParsingException {
+            return findChannelTab(ChannelTabs.PLAYLISTS);
+        }
+    }
+
+    @FunctionalInterface
+    interface ParserCall<X> {
+        X get() throws ParsingException;
+    }
 
     public NewPipeService(StreamingService streamingService, Settings settings) {
         this.streamingService = streamingService;
@@ -118,10 +170,26 @@ public class NewPipeService {
         if (handlerFactory != null) {
             try {
                 String id = handlerFactory.getId(url);
-                return new ContentId(id, handlerFactory.getUrl(id), type);
+                String canonicalUrl = handlerFactory.getUrl(id);
+                if (type == StreamingService.LinkType.STREAM) {
+                    return new VideoId(id, canonicalUrl, parseTimeStamp(url));
+                } else {
+                    return new ContentId(id, handlerFactory.getUrl(id), type);
+                }
             } catch (ParsingException pe) {
                 return null;
             }
+        }
+        return null;
+    }
+
+    private Integer parseTimeStamp(String url) {
+        try {
+            String time = Utils.getQueryValue(new URL(url), "t");
+            if (time != null) {
+                return Integer.parseInt(time);
+            }
+        } catch (MalformedURLException|NumberFormatException e) {
         }
         return null;
     }
@@ -133,7 +201,10 @@ public class NewPipeService {
      * @return List of {@link StreamInfo}.
      */
     public StreamInfo getStreamInfoByVideoId(String videoId) throws ExtractionException, IOException {
-        return getStreamInfoByUrl(getVideoUrl(videoId));
+        SkyTubeApp.nonUiThread();
+        LinkHandler linkHandler = streamingService.getStreamLHFactory().fromId(videoId);
+        StreamExtractor streamExtractor = streamingService.getStreamExtractor(linkHandler);
+        return StreamInfo.getInfo(streamExtractor);
     }
 
     /**
@@ -143,10 +214,10 @@ public class NewPipeService {
      * @throws ExtractionException
      * @throws IOException
      */
-    private List<YouTubeVideo> getChannelVideos(String channelId) throws NewPipeException {
+    private List<YouTubeVideo> getChannelVideos(ChannelId channelId) throws NewPipeException {
         SkyTubeApp.nonUiThread();
         VideoPagerWithChannel pager = getChannelPager(channelId);
-        List<YouTubeVideo> result = pager.getNextPageAsVideos();
+        List<YouTubeVideo> result = pager.getNextPageAsVideosAndUpdateChannel(null).channel().getYouTubeVideos();
         Logger.i(this, "getChannelVideos for %s(%s)  -> %s videos", pager.getChannel().getTitle(), channelId, result.size());
         return result;
     }
@@ -167,7 +238,7 @@ public class NewPipeService {
             return null;
         }
         feedExtractor.fetchPage();
-        return new VideoPagerWithChannel(streamingService, (ListExtractor)feedExtractor, createInternalChannelFromFeed(feedExtractor)).getNextPageAsVideos();
+        return new VideoPagerWithChannel(streamingService, feedExtractor, createInternalChannelFromFeed(feedExtractor)).getNextPageAsVideos();
     }
 
     /**
@@ -178,11 +249,11 @@ public class NewPipeService {
      * @throws ExtractionException
      * @throws IOException
      */
-    public List<YouTubeVideo> getVideosFromFeedOrFromChannel(String channelId) throws NewPipeException {
+    public List<YouTubeVideo> getVideosFromFeedOrFromChannel(ChannelId channelId) throws NewPipeException {
         try {
             SkyTubeApp.nonUiThread();
 
-            List<YouTubeVideo> videos = getFeedVideos(channelId);
+            List<YouTubeVideo> videos = getFeedVideos(channelId.getRawId());
             if (videos != null) {
                 return videos;
             }
@@ -203,14 +274,28 @@ public class NewPipeService {
         }
     }
 
-    public VideoPagerWithChannel getChannelPager(String channelId) throws NewPipeException {
+    public VideoPagerWithChannel getChannelPager(ChannelId channelId) throws NewPipeException {
+        try {
+            Logger.e(this, "fetching channel info: "+ channelId);
+            ChannelWithExtractor channelExtractor = getChannelWithExtractor(channelId);
+            ChannelTabExtractor tab = channelExtractor.findVideosTab();
+            if (tab == null) {
+                Logger.e(this, "findVideosTab returned null for channelId=%s", channelId);
+            }
+            return new VideoPagerWithChannel(streamingService, tab, channelExtractor.channel);
+        } catch (ParsingException | RuntimeException e) {
+            throw new NewPipeException("Getting videos for " + channelId + " fails:" + e.getMessage(), e);
+        }
+    }
+
+    public ChannelWithExtractor getChannelWithExtractor(ChannelId channelId) throws NewPipeException {
         try {
             ChannelExtractor channelExtractor = getChannelExtractor(channelId);
 
             YouTubeChannel channel = createInternalChannel(channelExtractor);
-            return new VideoPagerWithChannel(streamingService, (ListExtractor) channelExtractor, channel);
+            return new ChannelWithExtractor(channel, channelExtractor);
         } catch (ExtractionException | IOException | RuntimeException e) {
-            throw new NewPipeException("Getting videos for " + channelId + " fails:" + e.getMessage(), e);
+            throw new NewPipeException("Getting playlists for " + channelId + " fails:" + e.getMessage(), e);
         }
     }
 
@@ -230,58 +315,64 @@ public class NewPipeService {
             final ListLinkHandler linkHandler = streamingService.getCommentsLHFactory().fromId(videoId);
             final CommentsExtractor commentsExtractor = streamingService.getCommentsExtractor(linkHandler);
             return new CommentPager(streamingService, commentsExtractor);
-        } catch (ExtractionException | RuntimeException e) {
+        } catch (ExtractionException | RuntimeException | IOException e) {
             throw new NewPipeException("Getting comments for " + videoId + " fails:" + e.getMessage(), e);
         }
     }
 
     /**
-     * Return detailed information for a channel from it's id.
-     * @param channelId
+     * Return detailed, fresh information for a channel from it's id.
+     * @param persistentChannel
      * @return the {@link YouTubeChannel}, with a list of recent videos.
      * @throws ExtractionException
      * @throws IOException
      */
-    public YouTubeChannel getChannelDetails(String channelId) throws NewPipeException {
-        VideoPagerWithChannel pager = getChannelPager(Objects.requireNonNull(channelId, "channelId"));
+    public PersistentChannel getChannelDetails(ChannelId channelId, PersistentChannel persistentChannel) throws NewPipeException {
+        Logger.i(this, "Fetching channel details for " + channelId);
+        VideoPagerWithChannel pager = getChannelPager(channelId);
         // get the channel, and add all the videos from the first page
-        YouTubeChannel channel = pager.getChannel();
         try {
-            channel.getYouTubeVideos().addAll(pager.getNextPageAsVideos());
+            return pager.getNextPageAsVideosAndUpdateChannel(persistentChannel);
         } catch (NewPipeException e) {
             Logger.e(this, "Unable to retrieve videos for "+channelId+", error: "+e.getMessage(), e);
+            throw e;
         }
-        return channel;
     }
 
     private YouTubeChannel createInternalChannelFromFeed(FeedExtractor extractor) throws ParsingException {
         return new YouTubeChannel(extractor.getId(), extractor.getName(), null,
-                null, null, -1, false, 0, System.currentTimeMillis(), null);
+                null, null, -1, false, 0, System.currentTimeMillis(), null, Collections.emptyList());
     }
 
     private YouTubeChannel createInternalChannel(ChannelExtractor extractor) throws ParsingException {
-        return new YouTubeChannel(extractor.getId(), extractor.getName(), NewPipeUtils.filterHtml(extractor.getDescription()),
-                extractor.getAvatarUrl(), extractor.getBannerUrl(), getSubscriberCount(extractor), false, 0, System.currentTimeMillis(), null);
+        return new YouTubeChannel(
+                extractor.getId(),
+                extractor.getName(),
+                NewPipeUtils.filterHtml(extractor.getDescription()),
+                callParser(() -> NewPipeUtils.getThumbnailUrl(extractor.getAvatars()), null),
+                callParser(() -> NewPipeUtils.getThumbnailUrl(extractor.getBanners()), null),
+                callParser(() -> extractor.getSubscriberCount(), -1L),
+                false,
+                0,
+                System.currentTimeMillis(),
+                null,
+                extractor.getTags());
     }
 
-    /**
-     * @param extractor
-     * @return the subscriber count, or -1 if it's not available.
-     */
-    private long getSubscriberCount(ChannelExtractor extractor) {
+    private <X> X callParser(ParserCall<X> parser, X defaultValue) {
         try {
-            return extractor.getSubscriberCount();
-        } catch (NullPointerException | ParsingException  npe) {
-            Logger.e(this, "Unable to get subscriber count for " + extractor.getLinkHandler().getUrl() + " : "+ npe.getMessage(), npe);
-            return -1L;
+            return parser.get();
+        } catch (NullPointerException | ParsingException e) {
+            Logger.e(this, "Unable to parse: " + parser + ", error: " + e.getMessage(), e);
+            return defaultValue;
         }
     }
 
-    private ChannelExtractor getChannelExtractor(String channelId)
+    private ChannelExtractor getChannelExtractor(ChannelId channelId)
             throws ExtractionException, IOException {
         // Extract from it
         ChannelExtractor channelExtractor = streamingService
-                .getChannelExtractor(getListLinkHandler(Objects.requireNonNull(channelId, "channelId")));
+                .getChannelExtractor(getListLinkHandler(Objects.requireNonNull(channelId, "channelId").getRawId()));
         channelExtractor.fetchPage();
         return channelExtractor;
     }
@@ -306,7 +397,13 @@ public class NewPipeService {
     }
 
     private ListLinkHandler getPlaylistHandler(String playlistId) throws ParsingException {
-        return streamingService.getPlaylistLHFactory().fromId(playlistId);
+        ListLinkHandlerFactory factory = streamingService.getPlaylistLHFactory();
+        try {
+            return factory.fromUrl(playlistId);
+        } catch (Exception parsingException) {
+            Logger.i(instance, "PlaylistId '"+playlistId+"' is not an url:"+ parsingException.getMessage());
+            return factory.fromId(playlistId);
+        }
     }
 
     /**
@@ -335,7 +432,7 @@ public class NewPipeService {
 
         YouTubeVideo video = new YouTubeVideo(extractor.getId(), extractor.getName(), NewPipeUtils.filterHtml(extractor.getDescription()),
                 extractor.getLength(), new YouTubeChannel(extractor.getUploaderUrl(), extractor.getUploaderName()),
-                viewCount, uploadDate.instant, uploadDate.exact, extractor.getThumbnailUrl());
+                viewCount, uploadDate.instant, uploadDate.exact, NewPipeUtils.getThumbnailUrl(extractor.getThumbnails()));
         try {
             video.setLikeDislikeCount(extractor.getLikeCount(), getDislikeCount(extractor, videoId));
         } catch (ParsingException pe) {
@@ -376,7 +473,11 @@ public class NewPipeService {
                 Logger.i(this, "for "+ url +" -> "+jsonObject);
                 return jsonObject.getLong("dislikes");
             } catch (IOException | JSONException | ReCaptchaException e) {
-                Logger.e(this, "getDislikeCount: error: " + e.getMessage() + " for url:" + url, e);
+                if (VERBOSE_DISLIKE_COUNT_LOG) {
+                    Logger.e(this, "getDislikeCount: error: " + e.getMessage() + " for url:" + url, e);
+                } else {
+                    Logger.i(this, "getDislikeCount: error: " + e.getMessage() + " for url:" + url);
+                }
             }
         } else {
             Logger.i(this, "Like fetching disabled for " + videoId);
@@ -428,16 +529,6 @@ public class NewPipeService {
         }
     }
 
-    /**
-     * Given video ID it will return the video's page URL.
-     *
-     * @param videoId       The ID of the video.
-     * @throws ParsingException 
-     */
-    private String getVideoUrl(String videoId) throws ParsingException {
-        return streamingService.getStreamLHFactory().getUrl(videoId);
-    }
-
     public synchronized static NewPipeService get() {
         if (instance == null) {
             getHttpDownloader();
@@ -474,12 +565,5 @@ public class NewPipeService {
         final ContentCountry contentCountry = toContentCountry(countryCodeStr);
         Log.i("NewPipeService", "set preferred content country to " + contentCountry);
         NewPipe.setPreferredContentCountry(contentCountry);
-    }
-
-    /**
-     * @return true, if it's the preferred backend API
-     */
-    public static boolean isPreferred() {
-        return SkyTubeApp.getPreferenceManager().getBoolean(SkyTubeApp.getStr(R.string.pref_use_default_newpipe_backend), true);
     }
 }

@@ -28,6 +28,7 @@ import android.widget.Toast;
 import androidx.annotation.NonNull;
 import androidx.core.content.FileProvider;
 
+import com.google.api.services.youtube.model.Channel;
 import com.google.api.services.youtube.model.Thumbnail;
 import com.google.api.services.youtube.model.Video;
 import com.google.api.services.youtube.model.VideoSnippet;
@@ -54,6 +55,7 @@ import free.rm.skytube.app.StreamSelectionPolicy;
 import free.rm.skytube.businessobjects.FileDownloader;
 import free.rm.skytube.businessobjects.Logger;
 import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.YouTube.newpipe.NewPipeUtils;
 import free.rm.skytube.businessobjects.YouTube.newpipe.VideoId;
 import free.rm.skytube.businessobjects.db.BookmarksDb;
@@ -100,14 +102,9 @@ public class YouTubeVideo extends CardData implements Serializable {
 	 */
 	private int durationInSeconds = -1;
 	/**
-	 * Total views count.  This can be <b>null</b> if the video does not allow the user to
-	 * like/dislike it.  Format:  "<number> Views"
-	 */
-	private String viewsCount;
-	/**
 	 * Total views count.
 	 */
-	private BigInteger viewsCountInt;
+	private Long viewsCountInt;
 	/**
 	 * The date/time of when this video was published.
 	 */
@@ -171,7 +168,7 @@ public class YouTubeVideo extends CardData implements Serializable {
 		if (statistics != null) {
 			setLikeDislikeCount(statistics.getLikeCount() != null ? statistics.getLikeCount().longValue() : null, statistics.getDislikeCount() != null ? statistics.getDislikeCount().longValue() : null);
 
-			setViewCount(statistics.getViewCount());
+			setViewCount(statistics.getViewCount().longValue());
 		}
 	}
 
@@ -183,9 +180,8 @@ public class YouTubeVideo extends CardData implements Serializable {
 		return categoryId;
 	}
 
-	public void setViewCount(BigInteger viewsCountInt) {
+	public void setViewCount(Long viewsCountInt) {
 		this.viewsCountInt = viewsCountInt;
-		this.viewsCount = String.format(getStr(R.string.views), viewsCountInt);
 	}
 
         public YouTubeVideo(String id, String title, String description, long durationInSeconds,
@@ -196,7 +192,7 @@ public class YouTubeVideo extends CardData implements Serializable {
             this.description = description;
             setDurationInSeconds((int) durationInSeconds);
             if (viewCount >= 0) {
-                setViewCount(BigInteger.valueOf(viewCount));
+                setViewCount(viewCount);
             }
             if (publishDate != null) {
                 setPublishTimestamp(publishDate.toEpochMilli());
@@ -211,7 +207,7 @@ public class YouTubeVideo extends CardData implements Serializable {
 
         public VideoId getVideoId() {
             // TODO: this should be created by the NewPipe backend
-            return new VideoId(id, getVideoUrl());
+            return new VideoId(id, getVideoUrl(), null);
         }
 
 	/**
@@ -224,7 +220,7 @@ public class YouTubeVideo extends CardData implements Serializable {
 	public void setLikeDislikeCount(Long likedCountInt, Long dislikedCountInt) {
 		this.thumbsUpPercentage = -1;
 
-		Logger.i(this, "setLikeDislikeCount "+likedCountInt+" "+dislikedCountInt +" -> "+likeCountNumber+" "+dislikeCountNumber);
+		// Logger.d(this, "setLikeDislikeCount "+likedCountInt+" "+dislikedCountInt +" -> "+likeCountNumber+" "+dislikeCountNumber);
 		final Long likes = filterNegative(likedCountInt);
 		final Long dislikes = filterNegative(dislikedCountInt);
 
@@ -279,15 +275,15 @@ public class YouTubeVideo extends CardData implements Serializable {
 	}
 
     public String getSafeChannelId() {
-        return channel != null ? channel.getId() : null;
+        return channel != null ? channel.getChannelId().getRawId() : null;
     }
 
     public String getSafeChannelName() {
         return channel != null ? channel.getTitle() : null;
     }
 
-	public String getChannelId() {
-		return channel.getId();
+	public ChannelId getChannelId() {
+		return channel.getChannelId();
 	}
 
 	public String getChannelName() {
@@ -372,10 +368,10 @@ public class YouTubeVideo extends CardData implements Serializable {
 	}
 
 	public String getViewsCount() {
-		return viewsCount;
+		return viewsCountInt != null ? String.format(getStr(R.string.views), viewsCountInt) : null;
 	}
 
-	public BigInteger getViewsCountInt() {
+	public Long getViewsCountInt() {
 		return viewsCountInt;
 	}
 
@@ -489,7 +485,7 @@ public class YouTubeVideo extends CardData implements Serializable {
 
 		final Long views = filterNegative(streamInfo.getViewCount());
 		if (views != null) {
-			this.setViewCount(BigInteger.valueOf(views));
+			this.setViewCount(views);
 		}
 		this.setDescription(NewPipeUtils.filterHtml(streamInfo.getDescription()));
 	}

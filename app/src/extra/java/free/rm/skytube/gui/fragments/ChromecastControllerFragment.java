@@ -17,6 +17,7 @@ import com.google.android.gms.cast.MediaStatus;
 import com.google.android.gms.cast.framework.media.RemoteMediaClient;
 
 import free.rm.skytube.R;
+import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.db.DatabaseTasks;
 import free.rm.skytube.databinding.FragmentChromecastControllerBinding;
 import free.rm.skytube.databinding.VideoDescriptionBinding;
@@ -49,12 +50,7 @@ public class ChromecastControllerFragment extends ChromecastBaseControllerFragme
 		stopButton = fragmentBinding.stopButton;
 		bufferingSpinner = fragmentBinding.bufferingSpinner;
 
-		// Set the background color of the video description layout since by default it doesn't match the background color of the Chromecast controller
-		TypedValue typedValue = new TypedValue();
-		getContext().getTheme().resolveAttribute(R.attr.colorPrimary, typedValue, true);
-		videoDescriptionBinding.videoDescLinearlayout.setBackgroundResource(typedValue.resourceId);
-
-		Linker.configure(videoDescriptionBinding.videoDescDescription);
+		Linker.configure(videoDescriptionBinding.videoDescDescription, null);
 
 		fragmentBinding.chromecastPlaybackProgressBar.setOnSeekBarChangeListener(this);
 		if(savedInstanceState != null) {
@@ -106,8 +102,9 @@ public class ChromecastControllerFragment extends ChromecastBaseControllerFragme
 
 		compositeDisposable.add(
 				DatabaseTasks.getChannelInfo(requireContext(), video.getChannelId(), false)
-						.subscribe(youTubeChannel -> {
-							videoDescriptionBinding.videoDescSubscribeButton.setChannel(youTubeChannel);
+						.subscribe(subscribedChannel -> {
+                            YouTubeChannel youTubeChannel = subscribedChannel.channel();
+                            videoDescriptionBinding.videoDescSubscribeButton.setChannelInfo(subscribedChannel);
 
 							Glide.with(requireContext())
 									.load(youTubeChannel.getThumbnailUrl())

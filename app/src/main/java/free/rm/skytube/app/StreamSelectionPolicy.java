@@ -22,6 +22,7 @@ import android.net.Uri;
 
 import org.schabi.newpipe.extractor.MediaFormat;
 import org.schabi.newpipe.extractor.stream.AudioStream;
+import org.schabi.newpipe.extractor.stream.AudioTrackType;
 import org.schabi.newpipe.extractor.stream.StreamInfo;
 import org.schabi.newpipe.extractor.stream.VideoStream;
 
@@ -105,7 +106,7 @@ public class StreamSelectionPolicy {
         }
         AudioStream best = null;
         for (AudioStream audioStream : streamInfo.getAudioStreams()) {
-            if (isBetter(best, audioStream)) {
+            if (isOriginalAudio(audioStream) && isBetter(best, audioStream)) {
                 if (BuildConfig.DEBUG) {
                     Logger.d(this, "better %s -> %s", toHumanReadable(best), toHumanReadable(audioStream));
                 }
@@ -122,12 +123,18 @@ public class StreamSelectionPolicy {
         return as != null ? "AudioStream(" + as.getAverageBitrate() + ", " + as.getFormat() + ", codec=" + as.getCodec() + ", q=" + as.getQuality() + ", isUrl=" + as.isUrl() + ",delivery=" + as.getDeliveryMethod() + ")" : "NULL";
     }
 
+    private static boolean isOriginalAudio(AudioStream audioStream) {
+        AudioTrackType trackType = audioStream.getAudioTrackType();
+        // Accept streams with ORIGINAL type, or with null type (unknown/legacy)
+        return trackType == null || trackType == AudioTrackType.ORIGINAL;
+    }
+
     private boolean isBetter(AudioStream best, AudioStream other) {
         if (best == null) {
             return true;
         }
         switch (videoQuality) {
-            case LEAST_BANDWITH:
+            case LEAST_BANDWIDTH:
                 return other.getAverageBitrate() < best.getAverageBitrate();
             case BEST_QUALITY:
                 return best.getAverageBitrate() < other.getAverageBitrate();
@@ -165,7 +172,7 @@ public class StreamSelectionPolicy {
         VideoStreamWithResolution best = null;
         for (VideoStream stream : streams) {
             VideoStreamWithResolution videoStream = new VideoStreamWithResolution(stream);
-            if (isAllowed(videoStream.resolution) && isAllowedVideoFormat(videoStream.videoStream.getFormat())) {
+            if (isAllowed(videoStream.resolution) && isAllowedVideoFormat(videoStream.videoStream.getFormat()) && stream.isUrl()) {
                 switch (videoQuality) {
                     case BEST_QUALITY:
                         if (videoStream.isBetterQualityThan(best)) {
@@ -175,7 +182,7 @@ public class StreamSelectionPolicy {
                             best = videoStream;
                         }
                         break;
-                    case LEAST_BANDWITH:
+                    case LEAST_BANDWIDTH:
                         if (videoStream.isLessNetworkUsageThan(best)) {
                             if (BuildConfig.DEBUG) {
                                 Logger.d(this, "less network %s -> %s", VideoStreamWithResolution.toHumanReadable(best), VideoStreamWithResolution.toHumanReadable(videoStream));

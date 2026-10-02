@@ -28,9 +28,7 @@ import android.view.ViewGroup;
 
 import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-
-import com.afollestad.materialdialogs.MaterialDialog;
-
+import androidx.swiperefreshlayout.widget.SwipeRefreshLayout;
 
 import free.rm.skytube.R;
 import free.rm.skytube.app.EventBus;
@@ -48,32 +46,31 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable;
  * Fragment that displays subscriptions videos feed from all channels the user is subscribed to.
  */
 public class SubscriptionsFeedFragment extends VideosGridFragment implements GetSubscriptionVideosTaskListener {
-	private SubscriptionsBackupsManager subscriptionsBackupsManager;
+    private SubscriptionsBackupsManager subscriptionsBackupsManager;
 
-	/**
-	 * BroadcastReceiver that will receive a message that new subscription videos have been found by the
-	 * {@link FeedUpdaterService}. The video grid will be updated when this happens.
-	 */
-	private BroadcastReceiver feedUpdaterReceiver = new BroadcastReceiver() {
-		@Override
-		public void onReceive(Context context, Intent intent) {
-			refreshFeedFromCache();
-		}
-	};
+    /**
+     * BroadcastReceiver that will receive a message that new subscription videos have been found by the
+     * {@link FeedUpdaterService}. The video grid will be updated when this happens.
+     */
+    private BroadcastReceiver feedUpdaterReceiver = new BroadcastReceiver() {
+        @Override
+        public void onReceive(Context context, Intent intent) {
+            refreshFeedFromCache();
+        }
+    };
 
-	private FragmentSubsFeedBinding binding;
+    private FragmentSubsFeedBinding binding;
 
-	private final CompositeDisposable compositeDisposable = new CompositeDisposable();
-	private MaterialDialog fetchingChannelInfoDialog;
+    private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
-	@Override
-	public void onCreate(@Nullable Bundle savedInstanceState) {
-		super.onCreate(savedInstanceState);
+    @Override
+    public void onCreate(@Nullable Bundle savedInstanceState) {
+        super.onCreate(savedInstanceState);
 
-		subscriptionsBackupsManager = new SubscriptionsBackupsManager(getActivity(), SubscriptionsFeedFragment.this);
+        subscriptionsBackupsManager = new SubscriptionsBackupsManager(getActivity(), SubscriptionsFeedFragment.this);
 
-		EventBus.getInstance().registerSubscriptionListener(this);
-	}
+        EventBus.getInstance().registerSubscriptionListener(this);
+    }
 
     @Override
     public View onCreateView(@NonNull LayoutInflater inflater, ViewGroup container, Bundle savedInstanceState) {
@@ -81,7 +78,7 @@ public class SubscriptionsFeedFragment extends VideosGridFragment implements Get
         return binding.getRoot();
     }
 
-    void init(Context context, FragmentSubsFeedBinding bindingParam) {
+    private void init(Context context, FragmentSubsFeedBinding bindingParam) {
         this.binding = bindingParam;
         initVideos(context, videoGridAdapter, binding.videosGridview);
         binding.importSubscriptionsButton.setOnClickListener(v -> subscriptionsBackupsManager
@@ -92,42 +89,35 @@ public class SubscriptionsFeedFragment extends VideosGridFragment implements Get
         videoGridAdapter.setVideoCategory(VideoCategory.SUBSCRIPTIONS_FEED_VIDEOS);
     }
 
-	@Override
-	public void onResume() {
-		requireActivity().registerReceiver(feedUpdaterReceiver, new IntentFilter(FeedUpdaterService.NEW_SUBSCRIPTION_VIDEOS_FOUND));
+    @Override
+    public void onResume() {
+        requireActivity().registerReceiver(feedUpdaterReceiver, new IntentFilter(FeedUpdaterService.NEW_SUBSCRIPTION_VIDEOS_FOUND));
 
-		super.onResume();
+        super.onResume();
 
-		// setup the UI and refresh the feed (if applicable)
-		Settings settings = SkyTubeApp.getSettings();
-		startRefreshTask(isFragmentSelected(), settings.isFullRefreshTimely() || settings.isRefreshSubsFeedFull());
+        // setup the UI and refresh the feed (if applicable)
+        Settings settings = SkyTubeApp.getSettings();
+        if (settings.isFullRefreshTimely() || settings.isRefreshSubsFeedFull()) {
+            startRefreshTask();
+        }
 
-		// this will detect whether we have previous instructed the app (via refreshSubsFeedFromCache())
-		// to refresh the subs feed
-		if (settings.isRefreshSubsFeedFromCache()) {
-			// unset the flag
-			settings.setRefreshSubsFeedFromCache(false);
+        refreshFeedFromCache();
+    }
 
-			// refresh the subs feed by reading from the cache (i.e. local DB)
-			refreshFeedFromCache();
-		}
-	}
+    @Override
+    public synchronized void onPause() {
+        super.onPause();
+        requireActivity().unregisterReceiver(feedUpdaterReceiver);
+    }
 
-	@Override
-	public synchronized void onPause() {
-		hideFetchingVideosDialog();
-		super.onPause();
-		requireActivity().unregisterReceiver(feedUpdaterReceiver);
-	}
-
-	@Override
-	public void onDestroy() {
-		subscriptionsBackupsManager.clearBackgroundTasks();
-		compositeDisposable.clear();
-		subscriptionsBackupsManager = null;
-		EventBus.getInstance().unregisterSubscriptionListener(this);
-		super.onDestroy();
-	}
+    @Override
+    public void onDestroy() {
+        subscriptionsBackupsManager.clearBackgroundTasks();
+        compositeDisposable.clear();
+        subscriptionsBackupsManager = null;
+        EventBus.getInstance().unregisterSubscriptionListener(this);
+        super.onDestroy();
+    }
 
     @Override
     public void onDestroyView() {
@@ -135,122 +125,89 @@ public class SubscriptionsFeedFragment extends VideosGridFragment implements Get
         super.onDestroyView();
     }
 
-	@Override
-	public void onRefresh() {
-		startRefreshTask(true, true);
-	}
+    @Override
+    public void onRefresh() {
+        startRefreshTask();
+    }
 
+    private synchronized void startRefreshTask() {
+        FeedUpdateTask.getInstance().start(requireContext());
+    }
 
-	private synchronized void startRefreshTask(boolean isShowFetchingVideosDialog, boolean forcedFullRefresh) {
-		FeedUpdateTask fut = FeedUpdateTask.getInstance();
-		if (fut.isRefreshInProgress()) {
-			if (isShowFetchingVideosDialog) {
-				showFetchingVideosDialog();
-			}
-			return;
-		}
-		if (forcedFullRefresh && SkyTubeApp.isConnected(requireContext())) {
-			if (isShowFetchingVideosDialog) {
-				showFetchingVideosDialog();
-			}
+    @Override
+    public void onSubscriptionRefreshStarted() {
+        if (gridviewBinding != null && gridviewBinding.swipeRefreshLayout != null) {
+            gridviewBinding.swipeRefreshLayout.setRefreshing(true);
+        }
+    }
 
-			fut.start(requireContext());
+    @Override
+    public void onChannelsFound(boolean hasChannels) {
+        setupUiAccordingToNumOfSubbedChannels(hasChannels);
+    }
 
-		} else {
-			videoGridAdapter.refresh(true);
-		}
-	}
+    @Override
+    public void onSubscriptionRefreshFinished() {
+        // Remove the progress bar(s)
+        if (gridviewBinding != null && gridviewBinding.swipeRefreshLayout != null) {
+            gridviewBinding.swipeRefreshLayout.setRefreshing(false);
+        }
+    }
 
-	@Override
-	public void onSubscriptionRefreshStarted() {
-		if (swipeRefreshLayout != null) {
-			swipeRefreshLayout.setRefreshing(true);
-		}
-	}
+    @Override
+    public void onChannelVideoFetchFinish(boolean changes) {
+        // refresh the subs feed by reading from the cache (i.e. local DB)
+        if (changes) {
+            refreshFeedFromCache();
+        }
+    }
 
-	@Override
-	public void onChannelsFound(boolean hasChannels) {
-		setupUiAccordingToNumOfSubbedChannels(hasChannels);
-	}
+    @Override
+    protected VideoCategory getVideoCategory() {
+        return VideoCategory.SUBSCRIPTIONS_FEED_VIDEOS;
+    }
 
-	@Override
-	public void onSubscriptionRefreshFinished() {
-		// Remove the progress bar(s)
-		if (swipeRefreshLayout != null) {
-			swipeRefreshLayout.setRefreshing(false);
-		}
-		hideFetchingVideosDialog();
-	}
+    @Override
+    public String getFragmentName() {
+        return SkyTubeApp.getStr(R.string.feed);
+    }
 
-	@Override
-	public void onChannelVideoFetchFinish(boolean changes) {
-		// refresh the subs feed by reading from the cache (i.e. local DB)
-		if (changes) {
-			refreshFeedFromCache();
-		}
-	}
+    @Override
+    public int getPriority() {
+        return 2;
+    }
 
-	@Override
-	protected VideoCategory getVideoCategory() {
-		return VideoCategory.SUBSCRIPTIONS_FEED_VIDEOS;
-	}
+    @Override
+    public String getBundleKey() {
+        return MainFragment.SUBSCRIPTIONS_FEED_FRAGMENT;
+    }
 
-	@Override
-	public String getFragmentName() {
-		return SkyTubeApp.getStr(R.string.feed);
-	}
+    @Override
+    public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
+        subscriptionsBackupsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
+    }
 
-	@Override
-	public int getPriority() {
-		return 2;
-	}
+    /**
+     * Set up the UI depending to the total number of channel the user is subscribed to.
+     *
+     * @param hasChannels   If the user has already subscribed to at least one channel.
+     */
+    private void setupUiAccordingToNumOfSubbedChannels(boolean hasChannels) {
+        final SwipeRefreshLayout swipeRefreshLayout = gridviewBinding.swipeRefreshLayout;
+        if (hasChannels) {
+            if (swipeRefreshLayout.getVisibility() != View.VISIBLE) {
+                swipeRefreshLayout.setVisibility(View.VISIBLE);
+                binding.noSubscriptionsText.setVisibility(View.GONE);
+            }
+        } else {
+            swipeRefreshLayout.setVisibility(View.GONE);
+            binding.noSubscriptionsText.setVisibility(View.VISIBLE);
+        }
+    }
 
-	@Override
-	public String getBundleKey() {
-		return MainFragment.SUBSCRIPTIONS_FEED_FRAGMENT;
-	}
-
-	@Override
-	public void onRequestPermissionsResult(int requestCode, @NonNull String[] permissions, @NonNull int[] grantResults) {
-		subscriptionsBackupsManager.onRequestPermissionsResult(requestCode, permissions, grantResults);
-	}
-
-	/**
-	 * Set up the UI depending to the total number of channel the user is subscribed to.
-	 *
-	 * @param hasChannels   If the user has already subscribed to at least one channel.
-	 */
-	private void setupUiAccordingToNumOfSubbedChannels(boolean hasChannels) {
-		if (hasChannels) {
-			if (swipeRefreshLayout.getVisibility() != View.VISIBLE) {
-				swipeRefreshLayout.setVisibility(View.VISIBLE);
-				binding.noSubscriptionsText.setVisibility(View.GONE);
-			}
-		} else {
-			swipeRefreshLayout.setVisibility(View.GONE);
-			binding.noSubscriptionsText.setVisibility(View.VISIBLE);
-		}
-	}
-
-	private synchronized void hideFetchingVideosDialog() {
-		if (fetchingChannelInfoDialog != null) {
-			fetchingChannelInfoDialog.dismiss();
-			fetchingChannelInfoDialog = null;
-		}
-	}
-
-	private synchronized void showFetchingVideosDialog() {
-		hideFetchingVideosDialog();
-		fetchingChannelInfoDialog = new MaterialDialog.Builder(getActivity())
-				.content(R.string.fetching_subbed_channels_info)
-				.progress(true, 0)
-				.build();
-		fetchingChannelInfoDialog.show();
-	}
-
-	public void refreshFeedFromCache() {
-		if (videoGridAdapter != null) {
-			videoGridAdapter.refresh(true);
-		}
-	}
+    public void refreshFeedFromCache() {
+        if (videoGridAdapter != null) {
+            videoGridAdapter.refresh(true);
+        }
+    }
 }

@@ -22,12 +22,14 @@ import android.util.AttributeSet;
 import android.view.View;
 import android.widget.RemoteViews;
 
+import androidx.annotation.NonNull;
 import androidx.annotation.Nullable;
-import androidx.appcompat.widget.AppCompatButton;
+
+import com.google.android.material.button.MaterialButton;
 
 import free.rm.skytube.R;
-import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
-import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
+import free.rm.skytube.businessobjects.YouTube.POJOs.PersistentChannel;
+import free.rm.skytube.businessobjects.YouTube.newpipe.ChannelId;
 import free.rm.skytube.businessobjects.db.DatabaseTasks;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 
@@ -35,12 +37,12 @@ import io.reactivex.rxjava3.disposables.CompositeDisposable;
  * The (channel) subscribe button.
  */
 @RemoteViews.RemoteView
-public class SubscribeButton extends AppCompatButton implements View.OnClickListener {
+public class SubscribeButton extends MaterialButton implements View.OnClickListener, ChannelSubscriber {
 
 	/** Is user subscribed to a channel? */
 	private boolean isUserSubscribed = false;
 
-	private YouTubeChannel channel;
+	private ChannelId channelId;
 	private OnClickListener externalClickListener = null;
 
 	private final CompositeDisposable compositeDisposable = new CompositeDisposable();
@@ -58,13 +60,9 @@ public class SubscribeButton extends AppCompatButton implements View.OnClickList
 		if(externalClickListener != null) {
 			externalClickListener.onClick(SubscribeButton.this);
 		}
-		if(channel != null) {
-			// Only fetch videos for this channel if fetchChannelVideosOnSubscribe is true AND the channel is not subscribed to yet.
-			if (!isUserSubscribed) {
-				compositeDisposable.add(YouTubeTasks.refreshSubscribedChannel(channel.getId(), null).subscribe());
-			}
+		if(channelId != null) {
 			compositeDisposable.add(DatabaseTasks.subscribeToChannel(!isUserSubscribed,
-					this, getContext(), channel, true).subscribe());
+					this, getContext(), channelId, true).subscribe());
 		}
 	}
 
@@ -78,24 +76,24 @@ public class SubscribeButton extends AppCompatButton implements View.OnClickList
 		compositeDisposable.clear();
 	}
 
-	public void setChannel(YouTubeChannel channel) {
-		this.channel = channel;
-		if (channel != null) {
-			setSubscribedState(channel.isUserSubscribed());
-		}
+	public void setChannelInfo(@NonNull PersistentChannel persistentChannel) {
+		this.channelId = persistentChannel.getChannelId();
+		setSubscribedState(persistentChannel.isSubscribed());
 	}
 
 	/**
 	 * Set the button's state to subscribe or unsubscribe (i.e. once clicked, the user indicates that he wants to
 	 * unsubscribe).
 	 */
+	@Override
 	public void setSubscribedState(boolean subscribed) {
+		isUserSubscribed = subscribed;
 		if (subscribed) {
+			// the user is subscribed currently
 			setText(R.string.unsubscribe);
-			isUserSubscribed = true;
 		} else {
+			// the user is currently NOT subscribed
 			setText(R.string.subscribe);
-			isUserSubscribed = false;	// the user is currently NOT subscribed, so they could subscribe
 		}
 	}
 }

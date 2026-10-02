@@ -20,7 +20,6 @@ package free.rm.skytube.gui.businessobjects.adapters;
 import android.content.Context;
 import android.util.Log;
 import android.view.LayoutInflater;
-import android.view.View;
 import android.view.ViewGroup;
 import android.widget.Toast;
 
@@ -30,7 +29,7 @@ import java.io.IOException;
 import java.util.List;
 
 import free.rm.skytube.R;
-import free.rm.skytube.businessobjects.YouTube.GetChannelPlaylists;
+import free.rm.skytube.businessobjects.YouTube.LegacyGetChannelPlaylists;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubeChannel;
 import free.rm.skytube.businessobjects.YouTube.POJOs.YouTubePlaylist;
 import free.rm.skytube.businessobjects.YouTube.YouTubeTasks;
@@ -38,6 +37,7 @@ import free.rm.skytube.databinding.VideoCellBinding;
 import free.rm.skytube.gui.businessobjects.PlaylistClickListener;
 import io.reactivex.rxjava3.disposables.CompositeDisposable;
 import io.reactivex.rxjava3.functions.Consumer;
+import io.reactivex.rxjava3.internal.functions.Functions;
 
 /**
  * An adapter that will display playlists in a {@link android.widget.GridView}.
@@ -45,7 +45,7 @@ import io.reactivex.rxjava3.functions.Consumer;
 public class PlaylistsGridAdapter extends RecyclerViewAdapterEx<YouTubePlaylist, PlaylistViewHolder> {
 	private static final String TAG = PlaylistsGridAdapter.class.getSimpleName();
 
-	private GetChannelPlaylists getChannelPlaylists;
+	private YouTubeTasks.ChannelPlaylistFetcher getChannelPlaylists;
 	private final PlaylistClickListener playlistClickListener;
 	private final CompositeDisposable compositeDisposable = new CompositeDisposable();
 
@@ -69,10 +69,8 @@ public class PlaylistsGridAdapter extends RecyclerViewAdapterEx<YouTubePlaylist,
 
 		// if it reached the bottom of the list, then try to get the next page of videos
 		if (position >= getItemCount() - 1) {
-			Log.w(TAG, "BOTTOM REACHED!!!");
-			if(getChannelPlaylists != null)
-				compositeDisposable.add(YouTubeTasks.getChannelPlaylists(getContext(), getChannelPlaylists, this, false)
-						.subscribe());
+			Log.d(TAG, "BOTTOM REACHED!!!");
+			refresh(Functions.emptyConsumer());
 		}
 	}
 
@@ -80,24 +78,21 @@ public class PlaylistsGridAdapter extends RecyclerViewAdapterEx<YouTubePlaylist,
 		compositeDisposable.clear();
 	}
 
-	public void setYouTubeChannel(YouTubeChannel youTubeChannel) {
-		try {
-			clearList();
-			getChannelPlaylists = new GetChannelPlaylists();
-			getChannelPlaylists.setYouTubeChannel(youTubeChannel);
-			compositeDisposable.add(YouTubeTasks.getChannelPlaylists(getContext(), getChannelPlaylists, this, false)
-					.subscribe());
-		} catch (IOException e) {
-			e.printStackTrace();
-			Toast.makeText(getContext(),
-							String.format(getContext().getString(R.string.could_not_get_videos), youTubeChannel.getTitle()),
-							Toast.LENGTH_LONG).show();
-		}
+	public void setFetcher(YouTubeTasks.ChannelPlaylistFetcher fetcher) {
+		clearList();
+		getChannelPlaylists = fetcher;
+		refresh(Functions.emptyConsumer());
 	}
 
 	public void refresh(@NonNull Consumer<List<YouTubePlaylist>> onFinished) {
 		if(getChannelPlaylists != null)
 			compositeDisposable.add(YouTubeTasks.getChannelPlaylists(getContext(), getChannelPlaylists, this, false)
+					.doOnError(error -> {
+						Log.e(TAG, "Unable to access: " + error.getMessage(), error);
+						Toast.makeText(getContext(),
+								String.format(getContext().getString(R.string.could_not_get_videos), getChannelPlaylists.getChannel().getTitle()),
+								Toast.LENGTH_LONG).show();
+					})
 					.subscribe(onFinished));
 	}
 }

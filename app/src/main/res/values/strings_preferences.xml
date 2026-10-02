@@ -70,6 +70,26 @@
     <string name="pref_key_import_subs" translatable="false">pref_key_import_subs</string>
     <string name="pref_title_import_subs">Import Subscriptions From YouTube</string>
     <string name="pref_summary_import_subs">Import your subscriptions from your YouTube account.</string>
+    <string name="pref_key_export_subs_opml" translatable="false">pref_key_export_subs_opml</string>
+    <string name="pref_title_export_subs_opml">Export Subscriptions to OPML</string>
+    <string name="pref_summary_export_subs_opml">Export your subscriptions to an OPML file.</string>
+    <string name="pref_key_import_subs_opml" translatable="false">pref_key_import_subs_opml</string>
+    <string name="pref_title_import_subs_opml">Import Subscriptions from OPML</string>
+    <string name="pref_summary_import_subs_opml">Import your subscriptions from an OPML file.</string>
+    <string name="opml_file_picker_title">Select OPML File</string>
+    <string name="subscriptions_exporting_opml">Exporting subscriptions to OPML…</string>
+    <string name="subscriptions_export_opml_success">Subscriptions exported successfully as "%s"</string>
+    <string name="subscriptions_export_opml_fail">Could not export subscriptions to OPML.</string>
+    <string name="opml_export_unknown_filename">Unknown Filename</string>
+    <string name="opml_export_title">Export Subscriptions to OPML</string>
+    <string name="opml_export_message">Choose a filename for your OPML export:</string>
+    <string name="opml_export_confirm">Export</string>
+    <string name="opml_export_cancel">Cancel</string>
+    <string name="opml_directory_title">Choose Export Location</string>
+    <string name="opml_directory_message">Select directory for OPML export:</string>
+    <string name="opml_directory_use_default">Use Default (Downloads)</string>
+    <string name="opml_directory_select">Select Directory</string>
+    <string name="opml_export_location">Export Location: %s</string>
     <string name="subs_import_select_backup">Select YouTube XML file to import</string>
     <string name="pref_chromecast_category">Chromecast</string>
     <string name="pref_key_chromecast_category" translatable="false">chromecast_category</string>
@@ -376,6 +396,7 @@
         <item>Ukraine</item>
         <item>United Arab Emirates</item>
         <item>United Kingdom</item>
+        <item>United States of America</item>
         <item>Vietnam</item>
         <item>Yemen</item>
         <item>Zimbabwe</item>
@@ -467,6 +488,7 @@
         <item>UA</item>
         <item>AE</item>
         <item>GB</item>
+        <item>US</item>
         <item>VN</item>
         <item>YE</item>
         <item>ZW</item>
@@ -549,13 +571,10 @@
     <string name="pref_key_subscriptions_alphabetical_order" translatable="false">pref_key_subscriptions_alphabetical_order</string>
     <string name="pref_title_subscriptions_alphabetical_order">Sort Channels Alphabetically</string>
     <string name="pref_summary_subscriptions_alphabetical_order">Lists subscribed Channels alphabetically.</string>
-
     <string name="pref_key_use_dislike_api" translatable="false">pref_key_use_dislike_api</string>
     <string name="pref_title_use_dislike_api">Return dislike counter</string>
     <string name="pref_summary_use_dislike_api">Return dislike counter using returnyoutubedislike.com</string>
     <bool name="pref_use_dislike_api">false</bool>
-
-
     <string name="pref_key_brightness_level" translatable="false">pref_key_brightness_level</string>
     <string name="pref_category_downloads">Downloads</string>
     <string name="pref_category_video_resolutions">Video Resolution</string>
@@ -624,7 +643,6 @@
         <item>5.5</item>
         <item>6.0</item>
     </string-array>
-
     <!--
         VIDEO BLOCKER
     -->
@@ -638,8 +656,8 @@
     <string name="pref_summary_channel_filter_method">Select channel filtering method:  %s</string>
     <string name="disabled">Disabled</string>
     <string-array name="channel_filtering_list">
-        <item>Blacklisting</item>
-        <item>Whitelisting</item>
+        <item>Channel Deny List</item>
+        <item>Channel Allow List</item>
     </string-array>
     <string name="channel_blacklisting_filtering" translatable="false">channel_blacklisting_filtering</string>
     <string name="channel_whitelisting_filtering" translatable="false">channel_whitelisting_filtering</string>
@@ -648,24 +666,24 @@
         <item>@string/channel_whitelisting_filtering</item>
     </string-array>
     <string name="pref_key_channel_blacklist" translatable="false">pref_key_channel_blacklist</string>
-    <string name="pref_title_channel_blacklist">Channel Blacklist</string>
+    <string name="pref_title_channel_blacklist">Channel Deny List</string>
     <string name="pref_summary_channel_blacklist">A list of blocked channels.</string>
     <string name="unblock">Unblock</string>
-    <string name="channel_blacklist_updated">Refresh videos to apply the new channel blacklist.</string>
-    <string name="channel_blacklist_update_failure">Could not remove the given channel(s) from the blacklist…</string>
-    <string name="channel_blacklist_empty">The blacklist is empty.</string>
+    <string name="channel_blacklist_updated">Refresh videos to apply the new channel deny list.</string>
+    <string name="channel_blacklist_update_failure">Could not remove the given channel(s) from the deny list…</string>
+    <string name="channel_blacklist_empty">The deny list is empty.</string>
     <string name="pref_key_channel_whitelist" translatable="false">pref_key_channel_whitelist</string>
-    <string name="pref_title_channel_whitelist">Channel Whitelist</string>
+    <string name="pref_title_channel_whitelist">Channel Allow List</string>
     <string name="pref_summary_channel_whitelist">A list of allowed channels.</string>
-    <string name="input_channel_url">Channel URLs to whitelist:</string>
+    <string name="input_channel_url">Channel URLs to allow:</string>
     <string name="add">Add</string>
     <string name="block">Block</string>
     <string name="please_wait">Please wait…</string>
-    <string name="channel_already_whitelisted">Channel already whitelisted.</string>
-    <string name="channel_whitelist_updated">Refresh videos to use the new channel whitelist.</string>
-    <string name="channel_whitelist_update_failure">Could not whitelist the given channel.</string>
-    <string name="channel_unwhitelist_success">Refresh videos to use the new channel whitelist.</string>
-    <string name="channel_unwhitelist_failure">Failed to unwhitelist the given channel(s)…</string>
+    <string name="channel_already_whitelisted">Channel already added to the allowed list.</string>
+    <string name="channel_whitelist_updated">Refresh videos to use the new channel allowed list.</string>
+    <string name="channel_whitelist_update_failure">Could not add to the allowed list the given channel.</string>
+    <string name="channel_unwhitelist_success">Refresh videos to use the new allowed channel list.</string>
+    <string name="channel_unwhitelist_failure">Failed to remove from the given channel(s) from the allowed channels list</string>
     <string name="pref_languages_filter_category">Language and Region Filters</string>
     <string name="pref_title_preferred_regions">Preferred Region</string>
     <string name="pref_key_preferred_region" translatable="false">pref_key_preferred_region</string>
@@ -738,7 +756,7 @@
     <string name="pref_summary_clear_playback_status">Clear progression for all videos.</string>
     <string name="pref_playback_status_cleared">Playback status cleared.</string>
     <string-array name="pref_network_usage" translatable="false">
-        <item>LEAST_BANDWITH</item>
+        <item>LEAST_BANDWIDTH</item>
         <item>BEST_QUALITY</item>
     </string-array>
     <string-array name="pref_network_usage_display">
@@ -748,6 +766,11 @@
     <string name="pref_key_default_content_country" translatable="false">pref_key_default_content_country</string>
     <string name="pref_title_default_content_country">Default content country</string>
     <string name="pref_summary_default_content_country">Show content intended for this country: %s</string>
+
+    <string name="pref_key_app_language" translatable="false">pref_key_app_language</string>
+    <string name="pref_title_app_language">Application Language</string>
+    <string name="pref_summary_app_language">The language used for all the labels in the application: %s</string>
+
     <!--
         SPONSORBLOCK
     -->
@@ -786,4 +809,20 @@
         <item>interaction</item>
         <item>music_offtopic</item>
     </string-array>
+
+    <!--
+        SECURITY
+    -->
+    <string name="pref_security_category">Security</string>
+    <string name="pref_key_security_pin" translatable="false">security_pin</string>
+    <string name="pref_title_set_security_pin">Set Security PIN</string>
+    <string name="pref_summary_set_security_pin">Set a PIN to protect access to preferences and sensitive actions.</string>
+    <string name="pref_title_enter_security_pin">Enter Security PIN</string>
+    <string name="pref_summary_enter_security_pin">Enter your PIN to access preferences and sensitive actions.</string>
+    <string name="pref_key_require_pin_code" translatable="false">require_pin_code</string>
+    <string name="pref_title_require_pin_code">Require PIN code</string>
+    <string name="pref_summary_require_pin_code">Entering a PIN code is required for certain modifications.</string>
+    <string name="pref_title_change_security_pin">Change Security PIN</string>
+    <string name="pref_summary_change_security_pin">Change the PIN to protect access to preferences and sensitive actions.</string>
+
 </resources>
